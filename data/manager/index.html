@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Clipboard Manager</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <header id="search">
+    <form data-value="">
+      <input type="search" autofocus placeholder="search query" autocomplete="off" id="searchbox">
+      <input type="submit" value="">
+    </form>
+  </header>
+
+  <div id="content">
+    <template id="entry"><tr class="entry">
+      <td>#</td>
+      <td data-id="pin" data-cmd="toggle-pinned"></td>
+      <td>
+        <h2 data-id="title">Title</h2>
+        <p data-id="body">Body</p>
+        <span data-id="url">http://example.com</span>
+      </td>
+      <td data-id="trash" data-cmd="trash"></td>
+    </tr></template>
+    <table width="100%">
+      <colgroup>
+        <col width="24px">
+        <col width="24px">
+        <col>
+        <col width="24px">
+      </colgroup>
+      <tbody></tbody>
+    </table>
+  </div>
+  <script src="manager.js"></script>
+  <script src="index.js"></script>
+</body>
+</html>
