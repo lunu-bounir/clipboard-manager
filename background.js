@@ -19,7 +19,7 @@ chrome.storage.local.get(prefs, ps => {
   monitor.install();
 });
 
-var pid; // process id of the last active app
+var pid; // process id of the last active app (will be used to focus the window on Mac OS)
 
 var ports = [];
 chrome.runtime.onConnect.addListener(p => {
@@ -84,10 +84,8 @@ manager.language = query => new Promise(resolve => chrome.i18n.detectLanguage(qu
 }));
 
 manager.add = obj => new Promise((resolve, reject) => {
-  if (obj.pinned) {
-    obj.keywords = 'pinned';
-  }
-  const {body, guid} = obj;
+  const {body} = obj;
+  let {guid} = obj;
 
   if (!body || body.trim().length === 0) {
     return Promise.reject('empty record is ignored');
@@ -100,9 +98,21 @@ manager.add = obj => new Promise((resolve, reject) => {
         return reject('record is too big; ignored');
       }
       obj.lang = await manager.language(body);
+      guid = guid || md5(body.trim());
+      // if pinned state is not forced; we need to use the previous value
+      if (!('pinned' in obj)) {
+        try {
+          const old = await xapian.body(guid);
+          obj.pinned = old.pinned;
+        }
+        catch (e) {}
+      }
+      if (obj.pinned) {
+        obj.keywords = 'pinned';
+      }
       return xapian.add(obj, {
         pinned: obj.pinned
-      }, guid || md5(body)).then(resolve, reject);
+      }, guid).then(resolve, reject);
     });
   }
   else {

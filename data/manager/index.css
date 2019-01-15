@@ -73,11 +73,12 @@ body[data-mode=window] {
   table-layout: fixed;
 }
 #content tbody:empty::before {
-  content: 'Nothing to show! Select a text, then use Ctrl + C on Windows and Command + C on Mac to add new entries';
+  content: attr(data-msg);
   position: absolute;
   padding: 0 50px;
-  width: calc(100% - 100px);
+  width: calc(100% - 120px);
   height: calc(100% - 80px);
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;

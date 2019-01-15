@@ -31,19 +31,33 @@ manager.observer = new IntersectionObserver(entries => {
   }, 100);
 }, {});
 
-manager.clear = () => document.querySelector('#content tbody').textContent = '';
+manager.clear = (msg = '') => {
+  const tbody = document.querySelector('#content tbody');
+  tbody.textContent = '';
+  tbody.dataset.msg = msg;
+  manager.index = 1;
+};
 
-manager.add = object => {
+manager.add = (object, prj = 'clipboard-manager') => {
   const t = document.getElementById('entry');
   const clone = document.importNode(t.content, true);
-  clone.querySelector('[data-id=title]').textContent = object.title;
-  clone.querySelector('[data-id=body]').textContent = object.body.substr(0, 300);
-  clone.querySelector('[data-id=url]').textContent = object.url;
   const tr = clone.querySelector('tr');
-  Object.assign(tr.dataset, {
-    pinned: object.pinned || false
-  });
-  tr.object = object;
+  if (prj === 'clipboard-manager') {
+    clone.querySelector('[data-id=title]').textContent = object.title;
+    clone.querySelector('[data-id=body]').textContent = object.body.substr(0, 300);
+    clone.querySelector('[data-id=url]').textContent = object.url;
+    Object.assign(tr.dataset, {
+      pinned: object.pinned || false
+    });
+    tr.object = object;
+  }
+  else {
+    clone.querySelector('[data-id=title]').textContent = object.title;
+    clone.querySelector('[data-id=url]').textContent = object.url;
+    clone.querySelector('[data-id=date]').textContent = object.date;
+    clone.querySelector('[data-id=percent]').textContent = object.percent;
+    tr.dataset.id = object.id;
+  }
   clone.querySelector('td').textContent = manager.index++;
   document.querySelector('#content tbody').appendChild(clone);
   manager.observer.observe(tr, {
@@ -74,19 +88,19 @@ manager._select = tr => {
   }
 };
 
-manager.select = (tr = document.querySelector('#content tr')) => {
+manager.select = (tr = document.querySelector('#content tbody tr')) => {
   [...document.querySelectorAll('.entry.selected')].forEach(tr => tr.classList.remove('selected'));
   manager._select(tr);
 };
 manager.select.next = () => {
-  const tr = document.querySelector('#content tr.selected + tr');
+  const tr = document.querySelector('#content tbody tr.selected + tr');
   if (tr) {
     tr.previousElementSibling.classList.remove('selected');
     manager._select(tr);
   }
 };
 manager.select.previous = () => {
-  const tr = document.querySelector('#content tr + tr.selected');
+  const tr = document.querySelector('#content tbody tr + tr.selected');
   if (tr) {
     tr.classList.remove('selected');
     manager._select(tr.previousElementSibling);
@@ -96,6 +110,13 @@ manager.select.previous = () => {
 manager.close = () => chrome.runtime.sendMessage({
   method: 'close'
 }, () => window.close());
+
+manager.log = msg => {
+  const footer = document.getElementById('footer');
+  if (footer) {
+    footer.textContent = msg;
+  }
+};
 
 document.addEventListener('keydown', e => {
   if (e.code === 'ArrowUp') {
@@ -109,7 +130,7 @@ document.addEventListener('keydown', e => {
   else if (e.code === 'Enter') {
     const tr = document.querySelector('#content tr.selected');
     if (tr) {
-      manager.emit('copy', tr);
+      manager.emit('copy', tr, e);
     }
   }
   else if (e.code === 'Escape') {
@@ -119,7 +140,7 @@ document.addEventListener('keydown', e => {
 document.addEventListener('dblclick', e => {
   const tr = e.target.closest('#content tr');
   if (tr) {
-    manager.emit('copy', tr);
+    manager.emit('copy', tr, {});
   }
 });
 document.addEventListener('click', e => {

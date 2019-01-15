@@ -5,7 +5,7 @@ var info = document.getElementById('info');
 var init = () => chrome.storage.local.get({
   'mode': 'popup',
   'manager/search': 20,
-  'manager/hide-on-blur': true,
+  'manager/hide-on-blur': false,
   'max-buffer-size': null,
   'focus': true,
   'maximum-records': 1000
@@ -65,6 +65,14 @@ document.getElementById('clean').addEventListener('click', () => {
   info.textContent = 'Please wait...';
   chrome.runtime.getBackgroundPage(bg => bg.manager.cleanUp(num).then(num => {
     info.textContent = 'Total number of items removed: ' + num;
+    window.setTimeout(() => info.textContent = '', 750);
+  }));
+});
+
+// count
+document.getElementById('count').addEventListener('click', () => {
+  chrome.runtime.getBackgroundPage(bg => bg.xapian.count().then(num => {
+    info.textContent = 'Total number of items stored: ' + num;
     window.setTimeout(() => info.textContent = '', 750);
   }));
 });

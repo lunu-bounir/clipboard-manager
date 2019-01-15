@@ -5,6 +5,9 @@ var xapian = {};
 xapian.cache = {};
 xapian.config = {
   persistent: false,
+  object: {
+    store: true // if false, there will be no object storing (only indexing)
+  },
   directory: '/database',
   database: 'storage'
 };
@@ -18,7 +21,7 @@ Module['onRuntimeInitialized'] = () => {
   const _clean = Module.cwrap('clean', null, ['string']);
   const _prepare = Module.cwrap('prepare', null, ['string']);
   const _commit = Module.cwrap('commit', null, []);
-  const _query = Module.cwrap('query', null, ['string', 'string', 'number', 'number', 'boolean', 'boolean', 'boolean']);
+  const _query = Module.cwrap('query', null, ['string', 'string', 'number', 'number', 'boolean', 'boolean', 'boolean', 'boolean']);
   const _percent = Module.cwrap('percent', 'number', ['number']);
   const _key = Module.cwrap('key', 'number', ['number']);
   const _languages = Module.cwrap('languages', 'string', []);
@@ -52,10 +55,7 @@ Module['onRuntimeInitialized'] = () => {
       if (guid) {
         object.guid = guid;
       }
-      const request = xapian.storage.transaction(['objects'], 'readwrite')
-        .objectStore('objects').put(object);
-      request.onsuccess = () => {
-        const guid = request.result;
+      const next = guid => {
         _add(guid + '', lang, hostname, url, date, filename, mime, title, keywords, description, body);
         _commit();
         FS.syncfs(e => {
@@ -65,7 +65,17 @@ Module['onRuntimeInitialized'] = () => {
           resolve();
         });
       };
-      request.onerror = reject;
+      if (xapian.config.object.store) {
+        const request = xapian.storage.transaction(['objects'], 'readwrite')
+          .objectStore('objects').put(object);
+        request.onsuccess = () => {
+          next(request.result);
+        };
+        request.onerror = reject;
+      }
+      else {
+        next(guid || Math.random());
+      }
     }
     else {
       if (!guid) {
@@ -73,7 +83,9 @@ Module['onRuntimeInitialized'] = () => {
         xapian.add.guid += 1;
       }
       _add(guid, lang, hostname, url, date, filename, mime, title, keywords, description, body);
-      xapian.cache[guid] = Object.assign({mime, url, hostname, title, body}, hidden);
+      if (xapian.config.object.store) {
+        xapian.cache[guid] = Object.assign({mime, url, hostname, title, body}, hidden);
+      }
       resolve();
     }
   });
@@ -86,10 +98,15 @@ Module['onRuntimeInitialized'] = () => {
         if (e) {
           return reject(e);
         }
-        const request = xapian.storage.transaction(['objects'], 'readwrite').objectStore('objects')
-          .delete(guid);
-        request.onsuccess = resolve;
-        request.onerror = reject;
+        if (xapian.config.object.store) {
+          const request = xapian.storage.transaction(['objects'], 'readwrite').objectStore('objects')
+            .delete(guid);
+          request.onsuccess = resolve;
+          request.onerror = reject;
+        }
+        else {
+          resolve();
+        }
       });
     }
     else {
@@ -98,22 +115,32 @@ Module['onRuntimeInitialized'] = () => {
     }
   });
 
-  xapian.search = ({query, start = 0, length = 30, lang = 'english', partial = true, spell_correction = false, synonym = false}) => {
-    const pointer = _query(lang, query, start, length, partial, spell_correction, synonym);
+  xapian.search = ({query, start = 0, length = 30, lang = 'english', partial = true, spell_correction = false, synonym = false, descending = true}) => {
+    const pointer = _query(lang, query, start, length, partial, spell_correction, synonym, descending);
     const [size, estimated] = toString(pointer).split('/');
     return {
       size: Number(size),
       estimated: Number(estimated)
     };
   };
+  xapian.search.guid = index => {
+    return toString(_key(index));
+  };
   // get body of "index"ed matching result
   xapian.search.body = index => {
-    const guid = toString(_key(index));
+    const guid = xapian.search.guid(index);
     return xapian.body(guid);
   };
   // get snippet based on the actual content of the "index"ed matching result
-  xapian.search.snippet = ({index, lang = 'english', omit = ''}) => {
-    const guid = toString(_key(index));
+  // if body is not stored, content is mandatory
+  xapian.search.snippet = ({index, lang = 'english', omit = '', content}) => {
+    if (content) {
+      return Promise.resolve(_snippet(lang, content, 300, omit));
+    }
+    if (xapian.config.object.store === false) {
+      throw Error('xapian.search.snippet  is called without content');
+    }
+    const guid = xapian.search.guid(index);
     if (xapian.config.persistent) {
       return xapian.body(guid).then(obj => _snippet(lang, obj.body, 300, omit));
     }
@@ -129,16 +156,19 @@ Module['onRuntimeInitialized'] = () => {
 
 
   xapian.body = guid => new Promise((resolve, reject) => {
-    if (xapian.config.persistent) {
+    if (xapian.config.object.store === false) {
+      throw Error('xapian.body is not available');
+    }
+    else if (xapian.config.persistent) {
       // if guid is auto generated, it is a number, though xapian storage returns string
-      // we need to convert to search the indexeddb database
+      // we need to convert to search the IndexedDB database
       if (isNaN(guid) === false) {
         guid = Number(guid);
       }
       const request = xapian.storage.transaction(['objects'], 'readonly')
         .objectStore('objects')
         .openCursor(IDBKeyRange.only(guid));
-      request.onsuccess = e => resolve(e.target.result.value);
+      request.onsuccess = e => e.target.result ? resolve(e.target.result.value) : reject('no result');
       request.onerror = reject;
     }
     else {
@@ -160,31 +190,36 @@ Module['onRuntimeInitialized'] = () => {
         return console.error(e);
       }
       _prepare(xapian.config.directory);
-      //
-      const request = indexedDB.open(xapian.config.database, 1);
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (db.objectStoreNames.contains('objects') === false) {
-          const store = db.createObjectStore('objects', {
-            keyPath: 'guid',
-            autoIncrement: true
-          });
-          store.createIndex('guid', 'guid', {
-            unique: true
-          });
-          store.createIndex('timestamp', 'timestamp', {
-            unique: false
-          });
-          store.createIndex('pinned', 'pinned', {
-            unique: false
-          });
-        }
-      };
-      request.onerror = e => console.error(e);
-      request.onsuccess = () => {
-        xapian.storage = request.result;
+      // object storage
+      if (xapian.config.object.store) {
+        const request = indexedDB.open(xapian.config.database, 1);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (db.objectStoreNames.contains('objects') === false) {
+            const store = db.createObjectStore('objects', {
+              keyPath: 'guid',
+              autoIncrement: true
+            });
+            store.createIndex('guid', 'guid', {
+              unique: true
+            });
+            store.createIndex('timestamp', 'timestamp', {
+              unique: false
+            });
+            store.createIndex('pinned', 'pinned', {
+              unique: false
+            });
+          }
+        };
+        request.onerror = e => console.error(e);
+        request.onsuccess = () => {
+          xapian.storage = request.result;
+          document.dispatchEvent(new Event('xapian-ready'));
+        };
+      }
+      else {
         document.dispatchEvent(new Event('xapian-ready'));
-      };
+      }
     });
   }
   else {
@@ -196,6 +231,9 @@ Module['onRuntimeInitialized'] = () => {
 
 /* if trash is true, pinned recorders are skipped */
 xapian.records = ({number = 3, offset = 0, direction = 'next', trash = false}) => {
+  if (xapian.config.object.store === false) {
+    throw Error('xapian.records is not available');
+  }
   if (xapian.config.persistent) {
     return new Promise((resolve, reject) => {
       const store = xapian.storage.transaction(['objects'], 'readonly')
@@ -233,6 +271,9 @@ xapian.records = ({number = 3, offset = 0, direction = 'next', trash = false}) =
 };
 
 xapian.count = () => new Promise((resolve, reject) => {
+  if (xapian.config.object.store === false) {
+    throw Error('xapian.count is not available');
+  }
   const request = xapian.storage.transaction(['objects'], 'readonly')
     .objectStore('objects')
     .count();

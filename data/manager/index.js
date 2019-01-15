@@ -1,5 +1,7 @@
 /* globals manager */
 'use strict';
+
+const BLANK = 'Empty database! Select a text, then use Ctrl + C on Windows and Command + C on Mac to add new entries';
 // args
 var args = new URLSearchParams(location.search);
 document.body.dataset.mode = args.get('mode');
@@ -12,7 +14,7 @@ var bg;
 var prefs = {
   'manager/number': 10, // items to be fetched on each access
   'manager/search': 20,
-  'manager/hide-on-blur': true,
+  'manager/hide-on-blur': false,
   'focus': true
 };
 chrome.storage.local.get(prefs, ps => Object.assign(prefs, ps));
@@ -42,6 +44,7 @@ var fetch = (offset = 0, select = true) => bg.manager.records({
   if (select) {
     manager.select();
   }
+  return records.length;
 });
 
 manager.on('last-child', e => {
@@ -82,7 +85,7 @@ manager.on('trash', e => {
 }
 document.getElementById('search').addEventListener('submit', e => e.preventDefault());
 document.getElementById('search').addEventListener('input', async e => {
-  manager.clear();
+  manager.clear(e.target.value ? '' : BLANK);
   const form = document.querySelector('#search form');
   if (e.target.value) {
     const {size, estimated} = await bg.manager.search({
@@ -95,6 +98,9 @@ document.getElementById('search').addEventListener('input', async e => {
     }
     manager.select();
     form.dataset.value = 'matches: ' + estimated;
+    if (size === 0) {
+      manager.clear('No result for this search');
+    }
   }
   else {
     fetch();
@@ -105,7 +111,11 @@ document.getElementById('search').addEventListener('input', async e => {
 // init
 chrome.runtime.getBackgroundPage(_bg => {
   bg = _bg;
-  fetch();
+  fetch().then(length => {
+    if (length === 0) {
+      manager.clear(BLANK);
+    }
+  });
 });
 
 // hide on blur
