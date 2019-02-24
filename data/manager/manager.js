@@ -27,6 +27,7 @@ manager.observer = new IntersectionObserver(entries => {
   manager.observer.id = window.setTimeout(() => {
     [...document.querySelectorAll('#content [data-intersecting=true]')].forEach((tr, i) => {
       tr.querySelector('td').textContent = i + 1;
+      tr.dataset.index = i + 1;
     });
   }, 100);
 }, {});
@@ -63,6 +64,8 @@ manager.add = (object, prj = 'clipboard-manager') => {
   manager.observer.observe(tr, {
     threshold: 0.5
   });
+
+  return tr;
 };
 manager.update = ({title = '', body = '', url = '', pinned = false}, index) => {
   const tr = document.querySelector(`#content tr:nth-child(${index})`);
@@ -74,6 +77,9 @@ manager.update = ({title = '', body = '', url = '', pinned = false}, index) => {
       pinned
     });
   }
+};
+manager.list = () => {
+  return [...document.querySelectorAll('.entry')];
 };
 
 manager._select = tr => {
@@ -119,7 +125,15 @@ manager.log = msg => {
 };
 
 document.addEventListener('keydown', e => {
-  if (e.code === 'ArrowUp') {
+  if (e.code.startsWith('Digit') && e.metaKey) {
+    const tr = document.querySelector(`.entry[data-index="${e.key}"]`);
+    console.log(e.code, e.key, tr);
+    if (tr) {
+      manager.select(tr);
+    }
+    e.preventDefault();
+  }
+  else if (e.code === 'ArrowUp') {
     manager.select.previous();
     e.preventDefault();
   }
@@ -140,7 +154,7 @@ document.addEventListener('keydown', e => {
 document.addEventListener('dblclick', e => {
   const tr = e.target.closest('#content tr');
   if (tr) {
-    manager.emit('copy', tr, {});
+    manager.emit('copy', tr, e);
   }
 });
 document.addEventListener('click', e => {

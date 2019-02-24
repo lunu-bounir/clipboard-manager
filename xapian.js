@@ -1,4 +1,4 @@
-/* global Pointer_stringify, FS, IDBFS */
+/* global FS, IDBFS, UTF8ToString */
 'use strict';
 
 var xapian = {};
@@ -8,7 +8,7 @@ xapian.config = {
   object: {
     store: true // if false, there will be no object storing (only indexing)
   },
-  directory: '/database',
+  directories: ['/database'],
   database: 'storage'
 };
 
@@ -16,18 +16,18 @@ var Module = {};
 
 Module['onRuntimeInitialized'] = () => {
   const _add = Module.cwrap('add', null,
-    ['string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string']
+    ['number', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string']
   );
-  const _clean = Module.cwrap('clean', null, ['string']);
-  const _prepare = Module.cwrap('prepare', null, ['string']);
-  const _commit = Module.cwrap('commit', null, []);
-  const _query = Module.cwrap('query', null, ['string', 'string', 'number', 'number', 'boolean', 'boolean', 'boolean', 'boolean']);
+  const _clean = Module.cwrap('clean', null, ['number', 'string']);
+  const _prepare = Module.cwrap('prepare', null, ['number', 'string']);
+  const _commit = Module.cwrap('commit', null, ['number']);
+  const _query = Module.cwrap('query', null, ['number', 'string', 'string', 'number', 'number', 'boolean', 'boolean', 'boolean', 'boolean']);
   const _percent = Module.cwrap('percent', 'number', ['number']);
   const _key = Module.cwrap('key', 'number', ['number']);
   const _languages = Module.cwrap('languages', 'string', []);
   const _snippet = Module.cwrap('snippet', 'string', ['string', 'string', 'number', 'string']);
 
-  const toString = ptr => Pointer_stringify(ptr);
+  const toString = ptr => UTF8ToString(ptr); // eslint-disable-line new-cap
 
   xapian.add = ({
     mime = '',
@@ -38,7 +38,7 @@ Module['onRuntimeInitialized'] = () => {
     url,
     title,
     body
-  }, hidden = {}, guid) => new Promise((resolve, reject) => {
+  }, hidden = {}, guid, db = 0) => new Promise((resolve, reject) => {
     const {hostname, pathname} = url ? new URL(url) : {
       hostname: '',
       pathname: ''
@@ -56,13 +56,13 @@ Module['onRuntimeInitialized'] = () => {
         object.guid = guid;
       }
       const next = guid => {
-        _add(guid + '', lang, hostname, url, date, filename, mime, title, keywords, description, body);
-        _commit();
+        _add(db, guid + '', lang, hostname, url, date, filename, mime, title, keywords, description, body);
+        _commit(db);
         FS.syncfs(e => {
           if (e) {
             return reject(e);
           }
-          resolve();
+          resolve(guid + '');
         });
       };
       if (xapian.config.object.store) {
@@ -82,18 +82,18 @@ Module['onRuntimeInitialized'] = () => {
         guid = xapian.add.guid + '';
         xapian.add.guid += 1;
       }
-      _add(guid, lang, hostname, url, date, filename, mime, title, keywords, description, body);
+      _add(db, guid, lang, hostname, url, date, filename, mime, title, keywords, description, body);
       if (xapian.config.object.store) {
         xapian.cache[guid] = Object.assign({mime, url, hostname, title, body}, hidden);
       }
-      resolve();
+      resolve(guid);
     }
   });
 
-  xapian.remove = guid => new Promise((resolve, reject) => {
-    _clean(guid + '');
+  xapian.remove = (guid, db = 0) => new Promise((resolve, reject) => {
+    _clean(db, guid + '');
     if (xapian.config.persistent) {
-      _commit();
+      _commit(db);
       FS.syncfs(e => {
         if (e) {
           return reject(e);
@@ -115,8 +115,8 @@ Module['onRuntimeInitialized'] = () => {
     }
   });
 
-  xapian.search = ({query, start = 0, length = 30, lang = 'english', partial = true, spell_correction = false, synonym = false, descending = true}) => {
-    const pointer = _query(lang, query, start, length, partial, spell_correction, synonym, descending);
+  xapian.search = ({query, start = 0, length = 30, lang = 'english', partial = true, spell_correction = false, synonym = false, descending = true}, db = 0) => {
+    const pointer = _query(db, lang, query, start, length, partial, spell_correction, synonym, descending);
     const [size, estimated] = toString(pointer).split('/');
     return {
       size: Number(size),
@@ -168,7 +168,7 @@ Module['onRuntimeInitialized'] = () => {
       const request = xapian.storage.transaction(['objects'], 'readonly')
         .objectStore('objects')
         .openCursor(IDBKeyRange.only(guid));
-      request.onsuccess = e => e.target.result ? resolve(e.target.result.value) : reject('no result');
+      request.onsuccess = e => e.target.result ? resolve(e.target.result.value) : reject(Error('no result'));
       request.onerror = reject;
     }
     else {
@@ -182,14 +182,18 @@ Module['onRuntimeInitialized'] = () => {
 
   // open database in IDBFS or MEMFS state
   if (xapian.config.persistent) {
-    FS.mkdir(xapian.config.directory);
-    FS.mount(IDBFS, {}, xapian.config.directory);
-    // read local indexDB before opening the database
+    for (const directory of xapian.config.directories) {
+      FS.mkdir(directory);
+      FS.mount(IDBFS, {}, directory);
+    }
+    // sync local indexDB before opening the database
     FS.syncfs(true, e => {
       if (e) {
         return console.error(e);
       }
-      _prepare(xapian.config.directory);
+      xapian.config.directories.forEach((directory, index) => {
+        _prepare(index, directory);
+      });
       // object storage
       if (xapian.config.object.store) {
         const request = indexedDB.open(xapian.config.database, 1);
@@ -223,7 +227,9 @@ Module['onRuntimeInitialized'] = () => {
     });
   }
   else {
-    _prepare(xapian.config.directory);
+    xapian.config.directories.forEach((directory, index) => {
+      _prepare(index, directory);
+    });
     xapian.add.guid = 0;
     document.dispatchEvent(new Event('xapian-ready'));
   }
