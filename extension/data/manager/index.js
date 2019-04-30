@@ -19,8 +19,8 @@ var prefs = {
 };
 chrome.storage.local.get(prefs, ps => Object.assign(prefs, ps));
 
-manager.on('copy', async e => {
-  await navigator.clipboard.writeText(e.object.body);
+var exit = () => {
+  console.log(new Error().stack);
   if (bg.pid && bg.pid !== -1 && prefs.focus) {
     chrome.runtime.sendNativeMessage(bg.monitor.id, {
       method: 'focus',
@@ -30,6 +30,12 @@ manager.on('copy', async e => {
   else {
     manager.close();
   }
+};
+
+manager.on('copy', async e => {
+  console.log('copy');
+  await navigator.clipboard.writeText(e.object.body);
+  exit();
 });
 
 var fetch = (offset = 0, select = true) => bg.manager.records({
@@ -119,8 +125,16 @@ chrome.runtime.getBackgroundPage(_bg => {
 });
 
 // hide on blur
-window.addEventListener('blur', () => {
-  if (prefs['manager/hide-on-blur']) {
-    manager.close();
+if (args.get('mode') === 'window') {
+  window.addEventListener('blur', () => {
+    if (prefs['manager/hide-on-blur']) {
+      exit();
+    }
+  });
+}
+// close on escape
+document.addEventListener('keydown', e => {
+  if (e.code === 'Escape') {
+    exit();
   }
 });

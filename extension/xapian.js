@@ -78,7 +78,7 @@ Module['onRuntimeInitialized'] = () => {
       }
     }
     else {
-      if (!guid) {
+      if (guid === undefined) {
         guid = xapian.add.guid + '';
         xapian.add.guid += 1;
       }

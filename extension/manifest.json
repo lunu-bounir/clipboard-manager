@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
-  "version": "0.1.3",
+  "version": "0.1.4",
   "name": "Clipboard History Manager",
-  "description": "A full-featured desktop clipboard manager for your operating system to track what you copy & paste",
+  "description": "A full-featured desktop clipboard manager for Mac, Windows and Linux to track what you copy & paste",
   "offline_enabled": true,
   "permissions": [
     "idle",

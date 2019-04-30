@@ -2,24 +2,27 @@
 <html>
 <head>
   <title>Options :: Clipboard History Manager</title>
+  <meta charset="utf-8">
 </head>
 <body>
   <style>
-  body {
-    min-width: 600px;
-  }
+    body {
+      min-width: 600px;
+    }
     input[type=number] {
       width: 80px;
     }
-    td:last-child {
-      text-align: right;
+    td:last-child input {
+      float: right;
+    }
+    ol {
+      padding: 0 0 0 20px;
     }
   </style>
   <table width=100%>
     <tr>
       <td><input type="checkbox" id="window-mode"></td>
-      <td><label for="window-mode">Always open the manager in a popup window</label><sup>1</sup></td>
-      <td></td>
+      <td colspan="2"><label for="window-mode">Always open the manager in a popup window</label><sup>1</sup></td>
     </tr>
     <tr>
       <td></td>
@@ -28,8 +31,7 @@
     </tr>
     <tr>
       <td><input type="checkbox" id="manager/hide-on-blur"></td>
-      <td><label for="manager/hide-on-blur">Automatically close the clipboard manager when it is not focused</td>
-      <td></td>
+      <td colspan="2"><label for="manager/hide-on-blur">Automatically close the clipboard manager when it is not focused</td>
     </tr>
     <tr>
       <td></td>
@@ -38,29 +40,36 @@
     </tr>
     <tr>
       <td><input type="checkbox" id="focus"></td>
-      <td><label for="focus">Focus last active window on clipboard paste event when manager window is about to close</label></td>
-      <td></td>
+      <td colspan="2"><label for="focus">Focus last active window on clipboard paste event when manager window is about to close</label></td>
     </tr>
     <tr>
       <td></td>
       <td>Maximum number of clipboard entries to keep<sup>3</sup></td>
       <td><input type="number" id="maximum-records" min=10 max=5000></td>
     </tr>
+    <tr>
+      <td><input type="checkbox" id="faqs"></td>
+      <td colspan="2"><label for="faqs">Open FAQs page on updates to get notified on new changes</label></td>
+    </tr>
   </table>
 
+  <div id="explore"></div>
+  <p>
+    <input type="button" id="clean" value="Clean Database" title="To clear all items insert zero in the 'Maximum number of clipboard entries to keep' and then press this item">
+    <input type="button" id="count" value="Total #" title="Count total number of clipboard items stored"> - <input type="button" value="Save" id="save">
+    <span id="info" style="float: right;"></span>
+  </p>
   <p>
     <input type="button" id="support" value="Support Development">
     <input type="button" id="reset" value="Reset">
-    <input type="button" id="clean" value="Clean Database" title="To clear all items insert zero in the 'Maximum number of clipboard entries to keep' and then press this item">
-    <input type="button" id="count" value="Total #" title="Count total number of clipboard items stored"> - <input type="button" value="Save" id="save">
-    <span id="info"></span>
   </p>
-
+  <h1 style="border: none; border-bottom: dashed 1px #ccc;"></h1>
   <ol>
     <li>It is more useful to define a global keyboard for opening the manager window in the popup window mode than clicking the toolbar button to open it.</li>
     <li>Empty the box to store all clipboards up to 1Mbyte in size</li>
     <li>Storing more clipboard items requires more disk space for both the actual clipboard content and the indexer database. Your browser might not allow having very large database storage</li>
   </ol>
   <script src="index.js"></script>
+  <script async src="matched.js"></script>
 </body>
 </html>

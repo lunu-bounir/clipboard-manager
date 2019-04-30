@@ -8,7 +8,8 @@ var init = () => chrome.storage.local.get({
   'manager/hide-on-blur': false,
   'max-buffer-size': null,
   'focus': true,
-  'maximum-records': 1000
+  'maximum-records': 1000,
+  'faqs': true
 }, prefs => {
   document.getElementById('window-mode').checked = prefs.mode === 'window';
   document.getElementById('manager/search').value = prefs['manager/search'];
@@ -16,6 +17,7 @@ var init = () => chrome.storage.local.get({
   document.getElementById('max-buffer-size').value = prefs['max-buffer-size'];
   document.getElementById('focus').checked = prefs.focus;
   document.getElementById('maximum-records').value = prefs['maximum-records'];
+  document.getElementById('faqs').checked = prefs.faqs;
 });
 document.addEventListener('DOMContentLoaded', init);
 
@@ -31,7 +33,8 @@ document.getElementById('save').addEventListener('click', () => {
     'manager/hide-on-blur': document.getElementById('manager/hide-on-blur').checked,
     'max-buffer-size': size || null,
     'focus': document.getElementById('focus').checked,
-    'maximum-records': Math.max(10, Math.min(5000, document.getElementById('maximum-records').value))
+    'maximum-records': Math.max(10, Math.min(5000, document.getElementById('maximum-records').value)),
+    'faqs': document.getElementById('faqs').checked
   }, () => {
     info.textContent = 'Options saved!';
     init();

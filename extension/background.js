@@ -1,6 +1,8 @@
 /* globals md5, xapian, monitor */
 'use strict';
 
+var app = chrome.runtime.getManifest().app;
+
 var prefs = {
   'mode': 'popup',
   'max-buffer-size': null,
@@ -88,14 +90,14 @@ manager.add = obj => new Promise((resolve, reject) => {
   let {guid} = obj;
 
   if (!body || body.trim().length === 0) {
-    return Promise.reject('empty record is ignored');
+    return Promise.reject(Error('empty record is ignored'));
   }
   if (ready) {
     chrome.storage.local.get({
       'record-max-length': Infinity
     }, async prefs => {
       if (body.length > prefs['record-max-length']) {
-        return reject('record is too big; ignored');
+        return reject(Error('record is too big; ignored'));
       }
       obj.lang = await manager.language(body);
       guid = guid || md5(body.trim());
@@ -193,7 +195,23 @@ var getProcessId = () => new Promise(resolve => {
 
 // commands
 var onCommand = async command => {
-  if (command === 'open') {
+  if (command === 'open' && app) {
+    chrome.storage.local.get({
+      width: 750,
+      height: 550,
+      left: screen.availLeft + Math.round((screen.availWidth - 700) / 2),
+      top: screen.availTop + Math.round((screen.availHeight - 500) / 2)
+    }, prefs => {
+      chrome.app.window.create('data/manager/index.html?mode=window', {
+        id: 'clipboard-manager',
+        width: prefs.width,
+        height: prefs.height,
+        left: prefs.left,
+        top: prefs.top
+      });
+    });
+  }
+  else if (command === 'open') {
     // on Mac, we store process id to focus the lat active window on the manager close request
     if (prefs.focus) {
       await getProcessId();
@@ -225,14 +243,18 @@ var onCommand = async command => {
   }
 };
 chrome.commands.onCommand.addListener(onCommand);
-chrome.browserAction.onClicked.addListener(() => onCommand('open'));
+if (app) {
+  chrome.app.runtime.onLaunched.addListener(() => onCommand('open'));
+}
+else {
+  chrome.browserAction.onClicked.addListener(() => onCommand('open'));
+}
 
-var mode = () => {
-  chrome.browserAction.setPopup({
-    popup: prefs.mode === 'window' ? '' : 'data/manager/index.html'
-  });
-};
+var mode = () => chrome.browserAction && chrome.browserAction.setPopup({
+  popup: prefs.mode === 'window' ? '' : 'data/manager/index.html'
+});
 
+// FAQs
 {
   const {onInstalled, setUninstallURL, getManifest} = chrome.runtime;
   const {name, version} = getManifest();

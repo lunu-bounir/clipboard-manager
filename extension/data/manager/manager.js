@@ -147,9 +147,6 @@ document.addEventListener('keydown', e => {
       manager.emit('copy', tr, e);
     }
   }
-  else if (e.code === 'Escape') {
-    manager.close();
-  }
 });
 document.addEventListener('dblclick', e => {
   const tr = e.target.closest('#content tr');
