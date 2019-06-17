@@ -8,7 +8,7 @@ monitor.observe = async () => {
   if (body) {
     manager.add({
       body
-    });
+    }).catch(e => window.alert(chrome.runtime.getManifest().name + '\n\n' + 'Cannot add this item: ' + e.message));
   }
 };
 monitor.install = () => {

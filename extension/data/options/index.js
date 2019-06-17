@@ -44,12 +44,14 @@ document.getElementById('save').addEventListener('click', () => {
 
 // reset
 document.getElementById('reset').addEventListener('click', e => {
+  console.log(e.detail);
   if (e.detail === 1) {
     info.textContent = 'Double-click to reset!';
     window.setTimeout(() => info.textContent = '', 750);
   }
   else {
     localStorage.clear();
+
     chrome.storage.local.clear(() => {
       chrome.runtime.reload();
       window.close();
@@ -65,8 +67,9 @@ document.getElementById('support').addEventListener('click', () => chrome.tabs.c
 // clean
 document.getElementById('clean').addEventListener('click', () => {
   const num = document.getElementById('maximum-records').value || 1000;
-  info.textContent = 'Please wait...';
-  chrome.runtime.getBackgroundPage(bg => bg.manager.cleanUp(num).then(num => {
+  chrome.runtime.getBackgroundPage(bg => bg.manager.cleanUp(num, p => {
+    info.textContent = p.toFixed(1) + '%';
+  }).then(num => {
     info.textContent = 'Total number of items removed: ' + num;
     window.setTimeout(() => info.textContent = '', 750);
   }));
@@ -78,4 +81,104 @@ document.getElementById('count').addEventListener('click', () => {
     info.textContent = 'Total number of items stored: ' + num;
     window.setTimeout(() => info.textContent = '', 750);
   }));
+});
+
+// export
+document.getElementById('export').addEventListener('click', () => chrome.runtime.getBackgroundPage(bg => {
+  bg.xapian.count().then(number => {
+    bg.xapian.records({number}).then(objects => {
+      const {estimated} = bg.xapian.search({
+        query: 'keyword:pinned',
+        size: 1
+      });
+      const guids = [];
+      for (let i = 0; i < estimated; i += 10) {
+        const {size} = bg.xapian.search({
+          query: 'keyword:pinned',
+          start: i,
+          length: 10
+        });
+        for (let j = 0; j < size; j += 1) {
+          guids.push(bg.xapian.search.guid(j));
+        }
+      }
+      for (const object of objects) {
+        if (guids.indexOf(object.guid) !== -1) {
+          object.keywords = 'pinned';
+        }
+      }
+      const blob = new Blob([JSON.stringify(objects)], {
+        type: 'octet/stream'
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'clipboard-items.json';
+      a.click();
+      window.URL.revokeObjectURL(url);
+    });
+  });
+}));
+
+// import
+document.getElementById('import').addEventListener('click', () => {
+  const file = document.createElement('input');
+  file.style.display = 'none';
+  file.type = 'file';
+  file.accept = '.json';
+  file.acceptCharset = 'utf-8';
+
+  document.body.appendChild(file);
+  file.onchange = () => {
+    if (file.value !== file.initialValue) {
+      const entry = file.files[0];
+      if (entry.size > 100e6) {
+        console.warn('100MB backup? I don\'t believe you.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = e => {
+        const objects = JSON.parse(e.target.result);
+        chrome.runtime.getBackgroundPage(async bg => {
+          const len = objects.length - 1;
+          for (let i = 0; i <= len; i += 1) {
+            info.textContent = (i / len * 100).toFixed(1) + '%';
+            try {
+              const object = objects[i];
+              await bg.xapian.add(object, {
+                pinned: object.keywords && object.keywords.indexOf('pinned') !== -1
+              }, object.guid, 0, i === len - 1 || i % 100 === 0);
+            }
+            catch (e) {
+              console.error(e);
+            }
+          }
+          info.textContent = '';
+        });
+      };
+      reader.readAsText(entry, 'utf-8');
+    }
+  };
+  file.click();
+});
+
+// compact
+document.getElementById('compact').addEventListener('click', e => {
+  if (e.detail === 1) {
+    info.textContent = 'Export the database and double-click to proceed';
+    window.setTimeout(() => info.textContent = '', 2000);
+  }
+  else {
+    info.textContent = 'Please wait ...';
+    chrome.runtime.getBackgroundPage(bg => {
+      bg.xapian.compact(0, '/database').then(() => {
+        info.textContent = 'Done!';
+        window.setTimeout(() => info.textContent = '', 750);
+      }).catch(e => {
+        console.error(e);
+        info.textContent = 'Something went wrong! ' + e.message;
+        window.setTimeout(() => info.textContent = '', 2000);
+      });
+    });
+  }
 });

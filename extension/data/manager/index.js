@@ -94,18 +94,23 @@ document.getElementById('search').addEventListener('input', async e => {
   manager.clear(e.target.value ? '' : BLANK);
   const form = document.querySelector('#search form');
   if (e.target.value) {
-    const {size, estimated} = await bg.manager.search({
-      query: e.target.value,
-      length: prefs['manager/search']
-    });
-    for (let i = 0; i < size; i += 1) {
-      const object = await bg.manager.search.body(i);
-      manager.add(object);
+    try {
+      const {size, estimated} = await bg.manager.search({
+        query: e.target.value,
+        length: prefs['manager/search']
+      });
+      for (let i = 0; i < size; i += 1) {
+        const object = await bg.manager.search.body(i);
+        manager.add(object);
+      }
+      manager.select();
+      form.dataset.value = 'matches: ' + estimated;
+      if (size === 0) {
+        manager.clear('No result for this search');
+      }
     }
-    manager.select();
-    form.dataset.value = 'matches: ' + estimated;
-    if (size === 0) {
-      manager.clear('No result for this search');
+    catch (e) {
+      manager.clear('An error occurred during parsing your search');
     }
   }
   else {

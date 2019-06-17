@@ -131,17 +131,19 @@ manager.search.body = (...args) => xapian.search.body(...args);
 manager.records = (...args) => xapian.records(...args);
 manager.remove = (...args) => xapian.remove(...args);
 
-manager.cleanUp = (max = 500) => xapian.count().then(number => {
+manager.cleanUp = (max = 500, report = () => {}) => xapian.count().then(number => {
   const removing = number - max;
   if (removing > 0) {
     return xapian.records({
       number: removing,
       trash: true
     }).then(async records => {
-      for (const record of records) {
-        await xapian.remove(record.guid);
+      const len = records.length - 1;
+      for (let i = 0; i <= len; i += 1) {
+        await xapian.remove(records[i].guid, undefined, i === len || i % 100 === 0);
+        report(i / len * 100);
       }
-      return records.length;
+      return len + 1;
     });
   }
   else {
@@ -261,7 +263,7 @@ var mode = () => chrome.browserAction && chrome.browserAction.setPopup({
   const page = getManifest().homepage_url;
   onInstalled.addListener(({reason, previousVersion}) => {
     chrome.storage.local.get({
-      'faqs': true,
+      'faqs': false,
       'last-update': 0
     }, prefs => {
       if (reason === 'install' || (prefs.faqs && reason === 'update')) {

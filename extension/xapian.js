@@ -19,6 +19,8 @@ Module['onRuntimeInitialized'] = () => {
     ['number', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string', 'string']
   );
   const _clean = Module.cwrap('clean', null, ['number', 'string']);
+  const _compact = Module.cwrap('compact', null, ['number', 'string']);
+  const _release = Module.cwrap('release', null, ['number']);
   const _prepare = Module.cwrap('prepare', null, ['number', 'string']);
   const _commit = Module.cwrap('commit', null, ['number']);
   const _query = Module.cwrap('query', null, ['number', 'string', 'string', 'number', 'number', 'boolean', 'boolean', 'boolean', 'boolean']);
@@ -29,6 +31,20 @@ Module['onRuntimeInitialized'] = () => {
 
   const toString = ptr => UTF8ToString(ptr); // eslint-disable-line new-cap
 
+  xapian.compact = (index, directory) => new Promise((resolve, reject) => {
+    _compact(index, directory);
+    FS.syncfs(e => {
+      if (e) {
+        return reject(e);
+      }
+      resolve();
+    });
+  });
+
+  xapian.release = index => {
+    _release(index);
+  };
+
   xapian.add = ({
     mime = '',
     keywords = '',
@@ -37,8 +53,9 @@ Module['onRuntimeInitialized'] = () => {
     lang = 'english',
     url,
     title,
-    body
-  }, hidden = {}, guid, db = 0) => new Promise((resolve, reject) => {
+    body,
+    timestamp
+  }, hidden = {}, guid, db = 0, sync = true) => new Promise((resolve, reject) => {
     const {hostname, pathname} = url ? new URL(url) : {
       hostname: '',
       pathname: ''
@@ -50,20 +67,30 @@ Module['onRuntimeInitialized'] = () => {
 
     if (xapian.config.persistent) {
       const object = Object.assign({mime, url, hostname, title, body}, hidden, {
-        timestamp: Date.now()
+        timestamp: Date.now() || timestamp
       });
       if (guid) {
         object.guid = guid;
       }
       const next = guid => {
-        _add(db, guid + '', lang, hostname, url, date, filename, mime, title, keywords, description, body);
-        _commit(db);
-        FS.syncfs(e => {
-          if (e) {
-            return reject(e);
+        try {
+          _add(db, guid + '', lang, hostname, url, date, filename, mime, title, keywords, description, body);
+          if (sync) {
+            _commit(db);
+            FS.syncfs(e => {
+              if (e) {
+                return reject(e);
+              }
+              resolve(guid + '');
+            });
           }
-          resolve(guid + '');
-        });
+          else {
+            resolve(guid + '');
+          }
+        }
+        catch (e) {
+          reject(e);
+        }
       };
       if (xapian.config.object.store) {
         const request = xapian.storage.transaction(['objects'], 'readwrite')
@@ -90,24 +117,32 @@ Module['onRuntimeInitialized'] = () => {
     }
   });
 
-  xapian.remove = (guid, db = 0) => new Promise((resolve, reject) => {
+  xapian.remove = (guid, db = 0, sync = true) => new Promise((resolve, reject) => {
     _clean(db, guid + '');
     if (xapian.config.persistent) {
-      _commit(db);
-      FS.syncfs(e => {
-        if (e) {
-          return reject(e);
-        }
-        if (xapian.config.object.store) {
-          const request = xapian.storage.transaction(['objects'], 'readwrite').objectStore('objects')
-            .delete(guid);
-          request.onsuccess = resolve;
-          request.onerror = reject;
-        }
-        else {
-          resolve();
-        }
-      });
+      const next = () => {
+        const request = xapian.storage.transaction(['objects'], 'readwrite').objectStore('objects')
+          .delete(guid);
+        request.onsuccess = resolve;
+        request.onerror = reject;
+      };
+      if (sync) {
+        _commit(db);
+        FS.syncfs(e => {
+          if (e) {
+            return reject(e);
+          }
+          if (xapian.config.object.store) {
+            next();
+          }
+          else {
+            resolve();
+          }
+        });
+      }
+      else {
+        next();
+      }
     }
     else {
       delete xapian.cache[guid];
