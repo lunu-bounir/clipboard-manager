@@ -5,7 +5,7 @@ var app = chrome.runtime.getManifest().app;
 
 var prefs = {
   'mode': 'popup',
-  'max-buffer-size': null,
+  'max-buffer-size': 100 * 1024,
   'focus': true,
   'maximum-records': 1000
 };

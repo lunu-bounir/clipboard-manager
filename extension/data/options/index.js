@@ -1,3 +1,4 @@
+/* globals getDatabaseSize */
 'use strict';
 
 var info = document.getElementById('info');
@@ -6,7 +7,7 @@ var init = () => chrome.storage.local.get({
   'mode': 'popup',
   'manager/search': 20,
   'manager/hide-on-blur': false,
-  'max-buffer-size': null,
+  'max-buffer-size': 100 * 1024,
   'focus': true,
   'maximum-records': 1000,
   'faqs': true
@@ -14,7 +15,7 @@ var init = () => chrome.storage.local.get({
   document.getElementById('window-mode').checked = prefs.mode === 'window';
   document.getElementById('manager/search').value = prefs['manager/search'];
   document.getElementById('manager/hide-on-blur').checked = prefs['manager/hide-on-blur'];
-  document.getElementById('max-buffer-size').value = prefs['max-buffer-size'];
+  document.getElementById('max-buffer-size').value = prefs['max-buffer-size'] / 1024;
   document.getElementById('focus').checked = prefs.focus;
   document.getElementById('maximum-records').value = prefs['maximum-records'];
   document.getElementById('faqs').checked = prefs.faqs;
@@ -25,13 +26,13 @@ document.addEventListener('DOMContentLoaded', init);
 document.getElementById('save').addEventListener('click', () => {
   let size = document.getElementById('max-buffer-size').value;
   if (size) {
-    size = Math.min(Math.max(10, size), 1024 * 1024 - 5000);
+    size = Math.min(Math.max(1, size), 1000);
   }
   chrome.storage.local.set({
     'mode': document.getElementById('window-mode').checked ? 'window' : 'popup',
     'manager/search': Math.min(50, Math.max(2, document.getElementById('manager/search').value)),
     'manager/hide-on-blur': document.getElementById('manager/hide-on-blur').checked,
-    'max-buffer-size': size || null,
+    'max-buffer-size': size ? (size * 1024) : null,
     'focus': document.getElementById('focus').checked,
     'maximum-records': Math.max(10, Math.min(5000, document.getElementById('maximum-records').value)),
     'faqs': document.getElementById('faqs').checked
@@ -173,7 +174,6 @@ document.getElementById('compact').addEventListener('click', e => {
     chrome.runtime.getBackgroundPage(bg => {
       bg.xapian.compact(0, '/database').then(() => {
         info.textContent = 'Done!';
-        window.setTimeout(() => info.textContent = '', 750);
       }).catch(e => {
         console.error(e);
         info.textContent = 'Something went wrong! ' + e.message;
@@ -181,4 +181,17 @@ document.getElementById('compact').addEventListener('click', e => {
       });
     });
   }
+});
+
+// size
+document.getElementById('size').addEventListener('click', e => {
+  info.textContent = 'Please wait ...';
+  Promise.all([
+    getDatabaseSize('/database'),
+    getDatabaseSize('storage')
+  ]).then(([a, b]) => {
+    info.textContent = 'Index Size: ' + a + ', Storage Size: ' + b;
+  }).catch(e => {
+    info.textContent = 'Error: ' + e.message;
+  });
 });

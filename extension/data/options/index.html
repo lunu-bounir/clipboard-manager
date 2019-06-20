@@ -35,7 +35,7 @@
     </tr>
     <tr>
       <td></td>
-      <td>Do not add clipboards with length more than<sup>2</sup></td>
+      <td>Do not add clipboards with length more than (in KBytes)<sup>2</sup></td>
       <td><input type="number" id="max-buffer-size"></td>
     </tr>
     <tr>
@@ -56,7 +56,8 @@
   <div id="explore"></div>
   <p>
     <input type="button" id="clean" value="Clean Database" title="To clear all items insert zero in the 'Maximum number of clipboard entries to keep' and then press this item">
-    <input type="button" id="count" value="Total #" title="Count total number of clipboard items stored"> - <input type="button" value="Save" id="save">
+    <input type="button" id="count" value="Total #" title="Count total number of clipboard items stored">
+    <input type="button" id="size" value="Calc Total Size"> - <input type="button" value="Save" id="save">
     <span id="info" style="float: right;"></span>
   </p>
   <p>
@@ -72,6 +73,7 @@
     <li>Empty the box to store all clipboards up to 1Mbyte in size</li>
     <li>Storing more clipboard items requires more disk space for both the actual clipboard content and the indexer database. Your browser might not allow having very large database storage</li>
   </ol>
+  <script src="size.js"></script>
   <script src="index.js"></script>
   <script async src="matched.js"></script>
 </body>

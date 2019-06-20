@@ -110,7 +110,7 @@ document.getElementById('search').addEventListener('input', async e => {
       }
     }
     catch (e) {
-      manager.clear('An error occurred during parsing your search');
+      manager.clear('An error occurred: ' + e.message);
     }
   }
   else {

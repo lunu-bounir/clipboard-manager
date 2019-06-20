@@ -152,7 +152,11 @@ Module['onRuntimeInitialized'] = () => {
 
   xapian.search = ({query, start = 0, length = 30, lang = 'english', partial = true, spell_correction = false, synonym = false, descending = true}, db = 0) => {
     const pointer = _query(db, lang, query, start, length, partial, spell_correction, synonym, descending);
-    const [size, estimated] = toString(pointer).split('/');
+    const rst = toString(pointer);
+    if (rst.startsWith('Error: ')) {
+      throw Error(rst.replace('Error: ', ''));
+    }
+    const [size, estimated] = rst.split('/');
     return {
       size: Number(size),
       estimated: Number(estimated)
