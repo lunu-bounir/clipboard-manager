@@ -3,15 +3,15 @@
 
 const BLANK = 'Empty database! Select a text, then use Ctrl + C on Windows and Command + C on Mac to add new entries';
 // args
-var args = new URLSearchParams(location.search);
+const args = new URLSearchParams(location.search);
 document.body.dataset.mode = args.get('mode');
 
 // add persistent connection to detect single window
 chrome.runtime.connect();
 
-var bg;
+let bg;
 
-var prefs = {
+const prefs = {
   'manager/number': 10, // items to be fetched on each access
   'manager/search': 20,
   'manager/hide-on-blur': false,
@@ -19,7 +19,7 @@ var prefs = {
 };
 chrome.storage.local.get(prefs, ps => Object.assign(prefs, ps));
 
-var exit = () => {
+const exit = () => {
   console.log(new Error().stack);
   if (bg.pid && bg.pid !== -1 && prefs.focus) {
     chrome.runtime.sendNativeMessage(bg.monitor.id, {
@@ -33,12 +33,11 @@ var exit = () => {
 };
 
 manager.on('copy', async e => {
-  console.log('copy');
   await navigator.clipboard.writeText(e.object.body);
   exit();
 });
 
-var fetch = (offset = 0, select = true) => bg.manager.records({
+const fetch = (offset = 0, select = true) => bg.manager.records({
   number: prefs['manager/number'],
   offset,
   direction: 'prev'

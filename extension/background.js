@@ -1,9 +1,9 @@
 /* globals md5, xapian, monitor */
 'use strict';
 
-var app = chrome.runtime.getManifest().app;
+const {app} = chrome.runtime.getManifest();
 
-var prefs = {
+const prefs = {
   'mode': 'popup',
   'max-buffer-size': 100 * 1024,
   'focus': true,
@@ -21,9 +21,7 @@ chrome.storage.local.get(prefs, ps => {
   monitor.install();
 });
 
-var pid; // process id of the last active app (will be used to focus the window on Mac OS)
-
-var ports = [];
+const ports = [];
 chrome.runtime.onConnect.addListener(p => {
   p.onDisconnect.addListener(() => {
     const index = ports.indexOf(p);
@@ -35,8 +33,8 @@ chrome.runtime.onConnect.addListener(p => {
 });
 
 xapian.config.persistent = true; // use persistent storage
-var ready = false;
-var jobs = [];
+let ready = false;
+const jobs = [];
 
 document.addEventListener('xapian-ready', async () => {
   ready = true;
@@ -46,10 +44,10 @@ document.addEventListener('xapian-ready', async () => {
   }
 });
 
-var manager = {};
+const manager = window.manager = {};
 
 manager.language = query => new Promise(resolve => chrome.i18n.detectLanguage(query, obj => {
-  var convert = code => {
+  const convert = code => {
     code = code.split('-')[0];
     return ({
       'ar': 'arabic',
@@ -179,13 +177,14 @@ chrome.runtime.onMessage.addListener((request, sender) => {
   }
 });
 
-var getProcessId = () => new Promise(resolve => {
+const getProcessId = () => new Promise(resolve => {
   if (navigator.platform === 'MacIntel') {
     chrome.runtime.sendNativeMessage(monitor.id, {
       method: 'pid'
     }, r => {
       if (r && r.result) {
-        pid = r.result;
+        // process id of the last active app (will be used to focus the window on Mac OS)
+        window.pid = r.result;
       }
       resolve();
     });
@@ -196,7 +195,7 @@ var getProcessId = () => new Promise(resolve => {
 });
 
 // commands
-var onCommand = async command => {
+const onCommand = async command => {
   if (command === 'open' && app) {
     chrome.storage.local.get({
       width: 750,
@@ -252,7 +251,7 @@ else {
   chrome.browserAction.onClicked.addListener(() => onCommand('open'));
 }
 
-var mode = () => chrome.browserAction && chrome.browserAction.setPopup({
+const mode = () => chrome.browserAction && chrome.browserAction.setPopup({
   popup: prefs.mode === 'window' ? '' : 'data/manager/index.html'
 });
 

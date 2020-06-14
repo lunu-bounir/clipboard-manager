@@ -1,9 +1,17 @@
 /* globals getDatabaseSize */
 'use strict';
 
-var info = document.getElementById('info');
+const toast = document.getElementById('toast');
+toast.display = (msg, period = 2000) => {
+  toast.textContent = msg;
+  clearTimeout(toast.display.id);
+  toast.display.id = setTimeout(() => {
+    toast.textContent = '';
+  }, period);
+};
 
-var init = () => chrome.storage.local.get({
+
+const init = () => chrome.storage.local.get({
   'mode': 'popup',
   'manager/search': 20,
   'manager/hide-on-blur': false,
@@ -37,18 +45,15 @@ document.getElementById('save').addEventListener('click', () => {
     'maximum-records': Math.max(10, Math.min(5000, document.getElementById('maximum-records').value)),
     'faqs': document.getElementById('faqs').checked
   }, () => {
-    info.textContent = 'Options saved!';
+    toast.display('Options saved!');
     init();
-    window.setTimeout(() => info.textContent = '', 750);
   });
 });
 
 // reset
 document.getElementById('reset').addEventListener('click', e => {
-  console.log(e.detail);
   if (e.detail === 1) {
-    info.textContent = 'Double-click to reset!';
-    window.setTimeout(() => info.textContent = '', 750);
+    toast.display('Double-click to reset!');
   }
   else {
     localStorage.clear();
@@ -69,18 +74,16 @@ document.getElementById('support').addEventListener('click', () => chrome.tabs.c
 document.getElementById('clean').addEventListener('click', () => {
   const num = document.getElementById('maximum-records').value || 1000;
   chrome.runtime.getBackgroundPage(bg => bg.manager.cleanUp(num, p => {
-    info.textContent = p.toFixed(1) + '%';
+    toast.display(p.toFixed(1) + '%', 10000);
   }).then(num => {
-    info.textContent = 'Total number of items removed: ' + num;
-    window.setTimeout(() => info.textContent = '', 750);
+    toast.display('Total number of items removed: ' + num);
   }));
 });
 
 // count
 document.getElementById('count').addEventListener('click', () => {
   chrome.runtime.getBackgroundPage(bg => bg.xapian.count().then(num => {
-    info.textContent = 'Total number of items stored: ' + num;
-    window.setTimeout(() => info.textContent = '', 750);
+    toast.display('Total number of items stored: ' + num);
   }));
 });
 
@@ -143,7 +146,7 @@ document.getElementById('import').addEventListener('click', () => {
         chrome.runtime.getBackgroundPage(async bg => {
           const len = objects.length - 1;
           for (let i = 0; i <= len; i += 1) {
-            info.textContent = (i / len * 100).toFixed(1) + '%';
+            toast.display((i / len * 100).toFixed(1) + '%', 10000);
             try {
               const object = objects[i];
               await bg.xapian.add(object, {
@@ -154,7 +157,7 @@ document.getElementById('import').addEventListener('click', () => {
               console.error(e);
             }
           }
-          info.textContent = '';
+          toast.display('');
         });
       };
       reader.readAsText(entry, 'utf-8');
@@ -166,32 +169,31 @@ document.getElementById('import').addEventListener('click', () => {
 // compact
 document.getElementById('compact').addEventListener('click', e => {
   if (e.detail === 1) {
-    info.textContent = 'Export the database and double-click to proceed';
-    window.setTimeout(() => info.textContent = '', 2000);
+    toast.display('Export the database and double-click to proceed');
   }
   else {
-    info.textContent = 'Please wait ...';
+    toast.display('Please wait ...', 10000);
     chrome.runtime.getBackgroundPage(bg => {
       bg.xapian.compact(0, '/database').then(() => {
-        info.textContent = 'Done!';
+        toast.display('Done!');
       }).catch(e => {
-        console.error(e);
-        info.textContent = 'Something went wrong! ' + e.message;
-        window.setTimeout(() => info.textContent = '', 2000);
+        console.warn(e);
+        toast.display('Something went wrong! ' + e.message);
       });
     });
   }
 });
 
 // size
-document.getElementById('size').addEventListener('click', e => {
-  info.textContent = 'Please wait ...';
+document.getElementById('size').addEventListener('click', () => {
+  toast.display('Please wait ...', 10000);
   Promise.all([
     getDatabaseSize('/database'),
     getDatabaseSize('storage')
   ]).then(([a, b]) => {
-    info.textContent = 'Index Size: ' + a + ', Storage Size: ' + b;
+    toast.display('Index Size: ' + a + ', Storage Size: ' + b);
   }).catch(e => {
-    info.textContent = 'Error: ' + e.message;
+    toast.display('Error: ' + e.message);
+    console.warn(e);
   });
 });

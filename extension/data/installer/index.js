@@ -1,10 +1,10 @@
-var os = 'windows';
+let os = 'windows';
 if (navigator.userAgent.indexOf('Mac') !== -1) {
   os = 'mac';
 }
 document.body.dataset.os = os;
 
-var config = {
+const config = {
   link: {
     windows: 'https://github.com/lunu-bounir/clipboard-helper/releases/download/0.1.4/windows.zip',
     mac: 'https://github.com/lunu-bounir/clipboard-helper/releases/download/0.1.4/mac.zip'

@@ -1,6 +1,6 @@
 'use strict';
 
-var manager = {
+const manager = window.manager = {
   index: 1,
   callbacks: {}
 };

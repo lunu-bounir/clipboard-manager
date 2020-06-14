@@ -6,9 +6,6 @@
 </head>
 <body>
   <style>
-    body {
-      min-width: 600px;
-    }
     input[type=number] {
       width: 80px;
     }
@@ -17,6 +14,14 @@
     }
     ol {
       padding: 0 0 0 20px;
+    }
+    #toast {
+      padding-top: 5px;
+      display: block;
+      text-align: right;
+    }
+    #toast:empty {
+      display: none;
     }
   </style>
   <table width=100%>
@@ -55,18 +60,20 @@
 
   <div id="explore"></div>
   <p>
-    <input type="button" id="clean" value="Clean Database" title="To clear all items insert zero in the 'Maximum number of clipboard entries to keep' and then press this item">
     <input type="button" id="count" value="Total #" title="Count total number of clipboard items stored">
-    <input type="button" id="size" value="Calc Total Size"> - <input type="button" value="Save" id="save">
-    <span id="info" style="float: right;"></span>
+    <input type="button" id="size" value="Calc Total Size"> - <input type="button" value="Save Options" id="save">
+  </p>
+  <p>
+    <input type="button" id="clean" value="Clean Database" title="To clear all items insert zero in the 'Maximum number of clipboard entries to keep' and then press this item">
+    <input type="button" id="import" value="Import">
+    <input type="button" id="export" value="Export">
   </p>
   <p>
     <input type="button" id="compact" value="Compact Database">
-    <input type="button" id="import" value="Import">
-    <input type="button" id="export" value="Export">
     <input type="button" id="support" value="Support Development">
     <input type="button" id="reset" value="Reset" style="display: none">
   </p>
+  <span id="toast"></span>
   <h1 style="border: none; border-bottom: dashed 1px #ccc;"></h1>
   <ol>
     <li>It is more useful to define a global keyboard for opening the manager window in the popup window mode than clicking the toolbar button to open it.</li>

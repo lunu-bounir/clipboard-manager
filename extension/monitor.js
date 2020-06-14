@@ -1,7 +1,7 @@
 /* globals manager, prefs */
 'use strict';
 
-var monitor = {
+const monitor = window.monitor = {
   id: 'desktop.clipboard.manager',
   port: null
 };
