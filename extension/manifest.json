@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
-  "version": "0.1.9",
+  "version": "0.2.0",
   "name": "Clipboard History Manager",
-  "description": "A full-featured desktop clipboard manager for Mac, Windows and Linux to track what you copy & paste",
+  "description": "A full-featured desktop clipboard manager for Mac, Windows and Linux to record what you copy to the clipboard",
   "offline_enabled": true,
   "permissions": [
     "idle",
@@ -15,9 +15,7 @@
     "scripts": [
       "monitor.js",
       "md5.js",
-      "xapian.js",
-      "background.js",
-      "xapian/xapian_noexception_nowasm_db.js"
+      "background.js"
     ]
   },
   "icons": {
@@ -38,6 +36,7 @@
   },
   "options_ui": {
     "page": "data/options/index.html",
-    "chrome_style": true
+    "chrome_style": true,
+    "open_in_tab": true
   }
 }

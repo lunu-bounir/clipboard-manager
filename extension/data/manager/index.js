@@ -77,7 +77,10 @@ manager.on('trash', e => {
   }
   bg.manager.remove(guid)
     .then(() => e.remove())
-    .catch(e => window.alert(e.message));
+    .catch(e => {
+      console.warn(e);
+      window.alert(e.message);
+    });
 });
 
 // search
@@ -94,10 +97,10 @@ document.getElementById('search').addEventListener('input', async e => {
   const form = document.querySelector('#search form');
   if (e.target.value) {
     try {
-      const {size, estimated} = await bg.manager.search({
+      const {size, estimated} = (await bg.manager.search({
         query: e.target.value,
         length: prefs['manager/search']
-      });
+      })) || {size: 0, estimated: 0};
       for (let i = 0; i < size; i += 1) {
         const object = await bg.manager.search.body(i);
         manager.add(object);
@@ -109,6 +112,7 @@ document.getElementById('search').addEventListener('input', async e => {
       }
     }
     catch (e) {
+      console.warn(e);
       manager.clear('An error occurred: ' + e.message);
     }
   }

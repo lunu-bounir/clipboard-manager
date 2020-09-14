@@ -1,4 +1,4 @@
-/* globals md5, xapian, monitor */
+/* globals md5, monitor */
 'use strict';
 
 const {app} = chrome.runtime.getManifest();
@@ -32,17 +32,66 @@ chrome.runtime.onConnect.addListener(p => {
   ports.push(p);
 });
 
-xapian.config.persistent = true; // use persistent storage
 let ready = false;
 const jobs = [];
 
-document.addEventListener('xapian-ready', async () => {
-  ready = true;
 
-  for (const job of jobs) {
-    await manager.add(job);
+const worker = new Worker('worker.js');
+worker.cache = {};
+worker.onmessage = async e => {
+  const request = e.data;
+  if (request.method === 'ready') {
+    ready = true;
+
+    for (const job of jobs) {
+      await manager.add(job);
+    }
   }
-});
+  else if (request.id && request.error) {
+    worker.cache[request.id].reject(Error(request.error));
+    delete worker.cache[request.id];
+  }
+  else if (request.id) {
+    worker.cache[request.id].resolve(request.response);
+    delete worker.cache[request.id];
+  }
+};
+const xapian = window.xapian = {
+  _(method, ...args) {
+    const id = Math.random();
+    worker.postMessage({
+      method,
+      args,
+      id
+    });
+    return new Promise((resolve, reject) => worker.cache[id] = {resolve, reject});
+  },
+  body(...args) {
+    return xapian._('body', ...args);
+  },
+  add(...args) {
+    return xapian._('add', ...args);
+  },
+  search(...args) {
+    return xapian._('search', ...args);
+  },
+  records(...args) {
+    return xapian._('records', ...args);
+  },
+  remove(...args) {
+    return xapian._('remove', ...args);
+  },
+  count(...args) {
+    return xapian._('count', ...args);
+  },
+  compact(...args) {
+    return xapian._('compact', ...args);
+  }
+};
+xapian.search.body = (...args) => {
+  return xapian._('search.body', ...args);
+};
+
 
 const manager = window.manager = {};
 
@@ -123,7 +172,7 @@ manager.add = obj => new Promise((resolve, reject) => {
 
 manager.search = async obj => {
   obj.lang = await manager.language(obj.query);
-  return xapian.search(obj);
+  return await xapian.search(obj);
 };
 manager.search.body = (...args) => xapian.search.body(...args);
 manager.records = (...args) => xapian.records(...args);

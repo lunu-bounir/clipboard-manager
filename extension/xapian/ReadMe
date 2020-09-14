@@ -1,8 +1,5 @@
 Download Links
-  https://github.com/lunu-bounir/xapain.js/releases/tag/0.2.6
-
-  MD5 (xapian_noexception_nowasm_db.js) = 6945783bc791296acbe05660825aa6c0
-  MD5 (xapian_noexception_nowasm_db.js.mem) = b35153c9eba9308a019c4c27ec89dd4c
+  https://github.com/lunu-bounir/xapain.js/releases/tag/0.2.8
 
 Source code
   https://github.com/lunu-bounir/xapain.js/blob/master/xapian.cc

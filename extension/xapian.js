@@ -12,7 +12,11 @@ xapian.config = {
   database: 'storage'
 };
 
-var Module = {};
+var Module = {
+  locateFile(path, prefix) {
+    return prefix + 'xapian/' + path;
+  }
+};
 
 Module['onRuntimeInitialized'] = () => {
   const _add = Module.cwrap('add', null,
@@ -123,7 +127,7 @@ Module['onRuntimeInitialized'] = () => {
       const next = () => {
         const request = xapian.storage.transaction(['objects'], 'readwrite').objectStore('objects')
           .delete(guid);
-        request.onsuccess = resolve;
+        request.onsuccess = () => resolve();
         request.onerror = reject;
       };
       if (sync) {
@@ -153,10 +157,11 @@ Module['onRuntimeInitialized'] = () => {
   xapian.search = ({query, start = 0, length = 30, lang = 'english', partial = true, spell_correction = false, synonym = false, descending = true}, db = 0) => {
     const pointer = _query(db, lang, query, start, length, partial, spell_correction, synonym, descending);
     const rst = toString(pointer);
+
     if (rst.startsWith('Error: ')) {
       throw Error(rst.replace('Error: ', ''));
     }
-    const [size, estimated] = rst.split('/');
+    const [size, estimated] = (rst || '').split('/');
     return {
       size: Number(size),
       estimated: Number(estimated)
@@ -257,11 +262,11 @@ Module['onRuntimeInitialized'] = () => {
         request.onerror = e => console.error(e);
         request.onsuccess = () => {
           xapian.storage = request.result;
-          document.dispatchEvent(new Event('xapian-ready'));
+          self.dispatchEvent(new Event('xapian-ready'));
         };
       }
       else {
-        document.dispatchEvent(new Event('xapian-ready'));
+        self.dispatchEvent(new Event('xapian-ready'));
       }
     });
   }
@@ -270,7 +275,7 @@ Module['onRuntimeInitialized'] = () => {
       _prepare(index, directory);
     });
     xapian.add.guid = 0;
-    document.dispatchEvent(new Event('xapian-ready'));
+    self.dispatchEvent(new Event('xapian-ready'));
   }
 };
 
