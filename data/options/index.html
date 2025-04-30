@@ -3,27 +3,22 @@
 <head>
   <title>Options :: Clipboard History Manager</title>
   <meta charset="utf-8">
+  <link rel="stylesheet" type="text/css" href="index.css">
 </head>
 <body>
-  <style>
-    input[type=number] {
-      width: 80px;
-    }
-    td:last-child input {
-      float: right;
-    }
-    ol {
-      padding: 0 0 0 20px;
-    }
-    #toast {
-      padding-top: 5px;
-      display: block;
-      text-align: right;
-    }
-    #toast:empty {
-      display: none;
-    }
-  </style>
+  <p>
+    <label for="monitor">How to collect clipboards</label>
+    <select id="monitor">
+      <option value="native">Native Client (Global)</option>
+      <option value="browser">Content Script (Browser Only)</option>
+    </select>
+    <div class="note">This extension can capture clipboard events in two ways:
+      <ul>
+        <li>Content Script Mode: Works only when copying text within HTML pages in this browser. If enabled, no native client installation is required.</li>
+        <li>Native Client Mode: Allows clipboard collection from all applications system-wide.</li>
+      </ul>
+    </div>
+  </p>
   <table width=100%>
     <tr>
       <td><input type="checkbox" id="window-mode"></td>
@@ -58,7 +53,6 @@
     </tr>
   </table>
 
-  <div id="explore"></div>
   <p>
     <input type="button" id="count" value="Total #" title="Count total number of clipboard items stored">
     <input type="button" id="size" value="Calc Total Size"> - <input type="button" value="Save Options" id="save">
@@ -82,6 +76,5 @@
   </ol>
   <script src="size.js"></script>
   <script src="index.js"></script>
-  <script async src="matched.js"></script>
 </body>
 </html>

@@ -36,3 +36,28 @@ chrome.runtime.sendNativeMessage('desktop.clipboard.manager', {
 document.getElementById('restart').addEventListener('click', () => {
   chrome.runtime.reload();
 });
+
+chrome.storage.local.get({
+  monitor: 'native'
+}, prefs => {
+  document.getElementById('monitor').value = prefs.monitor;
+});
+
+document.getElementById('monitor').onchange = e => {
+  const monitor = e.target.value;
+  if (monitor === 'browser') {
+    chrome.permissions.request({
+      permissions: ['scripting', 'clipboardRead'],
+      origins: ['*://*/*']
+    }, granted => {
+      if (granted) {
+        chrome.storage.local.set({
+          monitor
+        }).then(() => window.close());
+      }
+      else {
+        e.target.value = 'native';
+      }
+    });
+  }
+};

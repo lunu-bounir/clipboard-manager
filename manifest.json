@@ -1,6 +1,6 @@
 {
-  "manifest_version": 2,
-  "version": "0.2.0",
+  "manifest_version": 3,
+  "version": "0.3.0",
   "name": "Clipboard History Manager",
   "description": "A full-featured desktop clipboard manager for Mac, Windows and Linux to record what you copy to the clipboard",
   "offline_enabled": true,
@@ -10,12 +10,20 @@
     "nativeMessaging",
     "unlimitedStorage"
   ],
+  "optional_permissions": [
+    "scripting",
+    "clipboardRead"
+  ],
+  "optional_host_permissions": [
+    "*://*/*"
+  ],
   "homepage_url": "https://add0n.com/clipboard-manager.html",
   "background": {
+    "service_worker": "worker.js",
     "scripts": [
       "monitor.js",
       "md5.js",
-      "background.js"
+      "worker.js"
     ]
   },
   "icons": {
@@ -28,15 +36,17 @@
     "256": "data/icons/256.png",
     "512": "data/icons/512.png"
   },
-  "browser_action":{},
+  "action":{},
   "commands": {
     "open": {
       "description": "Open the manager in a standalone window"
     }
   },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
   "options_ui": {
     "page": "data/options/index.html",
-    "chrome_style": true,
     "open_in_tab": true
   }
 }

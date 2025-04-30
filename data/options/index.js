@@ -1,4 +1,4 @@
-/* globals getDatabaseSize */
+/* global getDatabaseSize */
 'use strict';
 
 const toast = document.getElementById('toast');
@@ -18,7 +18,8 @@ const init = () => chrome.storage.local.get({
   'max-buffer-size': 100 * 1024,
   'focus': true,
   'maximum-records': 1000,
-  'faqs': true
+  'faqs': true,
+  'monitor': 'native'
 }, prefs => {
   document.getElementById('window-mode').checked = prefs.mode === 'window';
   document.getElementById('manager/search').value = prefs['manager/search'];
@@ -27,6 +28,7 @@ const init = () => chrome.storage.local.get({
   document.getElementById('focus').checked = prefs.focus;
   document.getElementById('maximum-records').value = prefs['maximum-records'];
   document.getElementById('faqs').checked = prefs.faqs;
+  document.getElementById('monitor').value = prefs.monitor;
 });
 document.addEventListener('DOMContentLoaded', init);
 
@@ -43,7 +45,8 @@ document.getElementById('save').addEventListener('click', () => {
     'max-buffer-size': size ? (size * 1024) : null,
     'focus': document.getElementById('focus').checked,
     'maximum-records': Math.max(10, Math.min(5000, document.getElementById('maximum-records').value)),
-    'faqs': document.getElementById('faqs').checked
+    'faqs': document.getElementById('faqs').checked,
+    'monitor': document.getElementById('monitor').value
   }, () => {
     toast.display('Options saved!');
     init();
@@ -71,58 +74,52 @@ document.getElementById('support').addEventListener('click', () => chrome.tabs.c
 }));
 
 // clean
-document.getElementById('clean').addEventListener('click', () => {
-  const num = document.getElementById('maximum-records').value || 1000;
-  chrome.runtime.getBackgroundPage(bg => bg.manager.cleanUp(num, p => {
-    toast.display(p.toFixed(1) + '%', 10000);
-  }).then(num => {
-    toast.display('Total number of items removed: ' + num);
-  }));
+document.getElementById('clean').addEventListener('click', async () => {
+  const o = await chrome.runtime.sendMessage({
+    method: 'manager.cleanUp',
+    number: document.getElementById('maximum-records').value || 1000
+  });
+  if (o && o.error) {
+    toast.display(o.error);
+  }
+  else {
+    toast.display('Total number of items removed: ' + o);
+  }
 });
 
 // count
 document.getElementById('count').addEventListener('click', () => {
-  chrome.runtime.getBackgroundPage(bg => bg.xapian.count().then(num => {
-    toast.display('Total number of items stored: ' + num);
-  }));
+  chrome.runtime.sendMessage({
+    method: 'manager.count'
+  }).then(o => {
+    if (o && o.error) {
+      toast.display(o.error);
+    }
+    else {
+      toast.display('Total number of items stored: ' + o);
+    }
+  });
 });
 
 // export
-document.getElementById('export').addEventListener('click', () => chrome.runtime.getBackgroundPage(bg => {
-  bg.xapian.count().then(number => {
-    bg.xapian.records({number}).then(objects => {
-      const {estimated} = bg.xapian.search({
-        query: 'keyword:pinned',
-        size: 1
-      });
-      const guids = [];
-      for (let i = 0; i < estimated; i += 10) {
-        const {size} = bg.xapian.search({
-          query: 'keyword:pinned',
-          start: i,
-          length: 10
-        });
-        for (let j = 0; j < size; j += 1) {
-          guids.push(bg.xapian.search.guid(j));
-        }
-      }
-      for (const object of objects) {
-        if (guids.indexOf(object.guid) !== -1) {
-          object.keywords = 'pinned';
-        }
-      }
-      const blob = new Blob([JSON.stringify(objects)], {
-        type: 'octet/stream'
-      });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'clipboard-items.json';
-      a.click();
-      window.URL.revokeObjectURL(url);
-    });
+document.getElementById('export').addEventListener('click', async () => {
+  const o = await chrome.runtime.sendMessage({
+    method: 'export'
   });
-}));
+  if (o && o.error) {
+    return toast.display(o.error);
+  }
+
+  const blob = new Blob([JSON.stringify(o)], {
+    type: 'octet/stream'
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'clipboard-items.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
 
 // import
 document.getElementById('import').addEventListener('click', () => {
@@ -143,22 +140,10 @@ document.getElementById('import').addEventListener('click', () => {
       const reader = new FileReader();
       reader.onloadend = e => {
         const objects = JSON.parse(e.target.result);
-        chrome.runtime.getBackgroundPage(async bg => {
-          const len = objects.length - 1;
-          for (let i = 0; i <= len; i += 1) {
-            toast.display((i / len * 100).toFixed(1) + '%', 10000);
-            try {
-              const object = objects[i];
-              await bg.xapian.add(object, {
-                pinned: object.keywords && object.keywords.indexOf('pinned') !== -1
-              }, object.guid, 0, i === len - 1 || i % 100 === 0);
-            }
-            catch (e) {
-              console.error(e);
-            }
-          }
-          toast.display('');
-        });
+        chrome.runtime.sendMessage({
+          method: 'import',
+          objects
+        }).then(() => toast.display(''));
       };
       reader.readAsText(entry, 'utf-8');
     }
@@ -173,13 +158,13 @@ document.getElementById('compact').addEventListener('click', e => {
   }
   else {
     toast.display('Please wait ...', 10000);
-    chrome.runtime.getBackgroundPage(bg => {
-      bg.xapian.compact(0, '/database').then(() => {
-        toast.display('Done!');
-      }).catch(e => {
-        console.warn(e);
-        toast.display('Something went wrong! ' + e.message);
-      });
+    chrome.runtime.sendMessage({
+      method: 'manager.compact'
+    }).then(r => {
+      if (r && r.error) {
+        toast(r.error);
+      }
+      toast.display('Done!');
     });
   }
 });
@@ -197,3 +182,24 @@ document.getElementById('size').addEventListener('click', () => {
     console.warn(e);
   });
 });
+
+chrome.runtime.onMessage.addListener(request => {
+  if (request.method === 'toast') {
+    toast.display(request.message, request.timeout);
+  }
+});
+
+
+document.getElementById('monitor').onchange = e => {
+  const monitor = e.target.value;
+  if (monitor === 'browser') {
+    chrome.permissions.request({
+      permissions: ['scripting', 'clipboardRead'],
+      origins: ['*://*/*']
+    }, granted => {
+      if (!granted) {
+        e.target.value = 'native';
+      }
+    });
+  }
+};

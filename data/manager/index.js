@@ -1,15 +1,11 @@
-/* globals manager */
+/* global manager */
 'use strict';
 
 const BLANK = 'Empty database! Select a text, then use Ctrl + C on Windows and Command + C on Mac to add new entries';
 // args
 const args = new URLSearchParams(location.search);
 document.body.dataset.mode = args.get('mode');
-
-// add persistent connection to detect single window
-chrome.runtime.connect();
-
-let bg;
+self.pid = args.has('pid') ? args.get('pid') : '';
 
 const prefs = {
   'manager/number': 10, // items to be fetched on each access
@@ -20,12 +16,13 @@ const prefs = {
 chrome.storage.local.get(prefs, ps => Object.assign(prefs, ps));
 
 const exit = () => {
-  console.log(new Error().stack);
-  if (bg.pid && bg.pid !== -1 && prefs.focus) {
-    chrome.runtime.sendNativeMessage(bg.monitor.id, {
-      method: 'focus',
-      pid: bg.pid
-    }, () => manager.close());
+  if (self.pid && self.pid !== -1 && prefs.focus) {
+    chrome.runtime.sendMessage({
+      method: 'native.focus',
+      pid: self.pid
+    }).then(() => {
+      manager.close();
+    });
   }
   else {
     manager.close();
@@ -37,7 +34,8 @@ manager.on('copy', async e => {
   exit();
 });
 
-const fetch = (offset = 0, select = true) => bg.manager.records({
+const fetch = (offset = 0, select = true) => chrome.runtime.sendMessage({
+  method: 'manager.records',
   number: prefs['manager/number'],
   offset,
   direction: 'prev'
@@ -63,9 +61,17 @@ manager.on('toggle-pinned', e => {
   const object = Object.assign(e.object, {
     pinned
   });
-  bg.manager.add(object)
-    .then(() => e.dataset.pinned = pinned)
-    .catch(e => window.alert(e.message));
+  chrome.runtime.sendMessage({
+    object,
+    method: 'manager.add'
+  }).then(r => {
+    if (r && r.error) {
+      window.alert(e.message);
+    }
+    else {
+      e.dataset.pinned = pinned;
+    }
+  });
 });
 manager.on('trash', e => {
   const {guid, pinned} = e.object;
@@ -75,12 +81,17 @@ manager.on('trash', e => {
       return;
     }
   }
-  bg.manager.remove(guid)
-    .then(() => e.remove())
-    .catch(e => {
-      console.warn(e);
-      window.alert(e.message);
-    });
+  chrome.runtime.sendMessage({
+    method: 'manager.remove',
+    guid
+  }).then(r => {
+    if (r && r.error) {
+      window.alert(r.error);
+    }
+    else {
+      e.remove();
+    }
+  });
 });
 
 // search
@@ -96,24 +107,30 @@ document.getElementById('search').addEventListener('input', async e => {
   manager.clear(e.target.value ? '' : BLANK);
   const form = document.querySelector('#search form');
   if (e.target.value) {
-    try {
-      const {size, estimated} = (await bg.manager.search({
-        query: e.target.value,
-        length: prefs['manager/search']
-      })) || {size: 0, estimated: 0};
-      for (let i = 0; i < size; i += 1) {
-        const object = await bg.manager.search.body(i);
+    const r = await chrome.runtime.sendMessage({
+      method: 'manager.search',
+      query: e.target.value,
+      length: prefs['manager/search']
+    });
+    if (r && r.error) {
+      manager.clear('An error occurred: ' + e.message);
+    }
+    else {
+      r.size = r.size || 0;
+      r.estimated = r.estimated || 0;
+
+      for (let index = 0; index < r.size; index += 1) {
+        const object = await chrome.runtime.sendMessage({
+          method: 'manager.search.body',
+          index
+        });
         manager.add(object);
       }
       manager.select();
-      form.dataset.value = 'matches: ' + estimated;
-      if (size === 0) {
+      form.dataset.value = 'matches: ' + r.estimated;
+      if (r.size === 0) {
         manager.clear('No result for this search');
       }
-    }
-    catch (e) {
-      console.warn(e);
-      manager.clear('An error occurred: ' + e.message);
     }
   }
   else {
@@ -123,13 +140,10 @@ document.getElementById('search').addEventListener('input', async e => {
 });
 
 // init
-chrome.runtime.getBackgroundPage(_bg => {
-  bg = _bg;
-  fetch().then(length => {
-    if (length === 0) {
-      manager.clear(BLANK);
-    }
-  });
+fetch().then(length => {
+  if (length === 0) {
+    manager.clear(BLANK);
+  }
 });
 
 // hide on blur
@@ -144,5 +158,16 @@ if (args.get('mode') === 'window') {
 document.addEventListener('keydown', e => {
   if (e.code === 'Escape') {
     exit();
+  }
+});
+
+//
+chrome.runtime.onMessage.addListener((request, sender, response) => {
+  if (request.method === 'ping') {
+    self.pid = request.pid;
+    response(true);
+    chrome.runtime.sendMessage({
+      method: 'focus'
+    });
   }
 });
