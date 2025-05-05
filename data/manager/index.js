@@ -163,11 +163,9 @@ document.addEventListener('keydown', e => {
 
 //
 chrome.runtime.onMessage.addListener((request, sender, response) => {
-  if (request.method === 'ping') {
-    self.pid = request.pid;
-    response(true);
-    chrome.runtime.sendMessage({
-      method: 'focus'
-    });
+  if (request.method === 'close') {
+    window.close();
   }
 });
+
+window.focus();

@@ -137,21 +137,16 @@ chrome.idle.onStateChanged.addListener(async state => {
 
 // messaging
 chrome.runtime.onMessage.addListener((request, sender, response) => {
+  console.log(request);
   if (request.method === 'close') {
     if (sender.tab) {
       chrome.windows.remove(sender.tab.windowId);
     }
   }
-  else if (request.method === 'focus') {
-    chrome.windows.update(sender.tab.windowId, {
-      focused: true
-    });
-  }
   else if (request.method === 'native.focus') {
-    console.log(request);
     chrome.runtime.sendNativeMessage(monitor.id, {
       method: 'focus',
-      pid: request.pid
+      pid: Number(request.pid)
     }, response);
     return true;
   }
@@ -304,43 +299,43 @@ const getProcessId = async () => {
     }).catch(e => {});
     if (r && r.result) {
       // process id of the last active app (will be used to focus the window on Mac OS)
-      self.pid = r.result;
+      return r.result;
     }
   }
-  return;
 };
 
 // commands
 const onCommand = async command => {
   if (command === 'open') {
+    const prefs = await chrome.storage.local.get({
+      focus: true,
+      width: 750,
+      height: 550
+    });
+
+    const args = new URLSearchParams();
+    args.set('mode', 'window');
+
     // on Mac, we store process id to focus the lat active window on the manager close request
     if (prefs.focus) {
-      await getProcessId();
+      args.set('pid', await getProcessId());
     }
 
-    const r = await chrome.runtime.sendMessage({
-      method: 'ping',
-      pid: self.pid
+    await chrome.runtime.sendMessage({
+      method: 'close'
     }).catch(e => {});
-    if (!r) {
-      const win = await chrome.windows.getCurrent();
-      const prefs = await chrome.storage.local.get({
-        width: 750,
-        height: 550,
-        left: win.left + Math.round((win.width - 700) / 2),
-        top: win.top + Math.round((win.height - 500) / 2)
-      });
-      chrome.windows.create({
-        url: 'data/manager/index.html?mode=window&pid=' + (self.pid || ''),
-        width: prefs.width,
-        height: prefs.height,
-        left: prefs.left,
-        top: prefs.top,
-        type: 'popup'
-      }, win => chrome.windows.update(win.id, {
-        focused: true
-      }));
-    }
+
+    const {left, width, height, top} = await chrome.windows.getCurrent();
+
+    await chrome.windows.create({
+      focused: true,
+      url: 'data/manager/index.html?' + args.toString(),
+      width: prefs.width,
+      height: prefs.height,
+      left: left + Math.round((width - 700) / 2),
+      top: top + Math.round((height - 500) / 2),
+      type: 'popup'
+    });
   }
 };
 chrome.commands.onCommand.addListener(onCommand);
