@@ -6,15 +6,34 @@ body {
   width: min(100% - 2rem, 70rem);
   margin-inline: auto;
 }
+h1 {
+  background-color: #ededed;
+  text-align: center;
+  padding: 20px;
+  font-size: 150%;
+  font-weight: normal;
+}
+h2 {
+  font-size: 120%;
+  font-weight: normal;
+  border-bottom: dashed 1px #ccc;
+  padding-bottom: 5px;
+}
+p.intro {
+  color: #757575;
+  font-size: 13px;
+  margin: 10px 0;
+}
 select,
 button,
 input[type=submit],
 input[type=button] {
-  height: 28px;
+  padding: 5px;
   color: #444;
   background-image: linear-gradient(rgb(237, 237, 237), rgb(237, 237, 237) 38%, rgb(222, 222, 222));
   box-shadow: rgba(0, 0, 0, 0.08) 0 1px 0, rgba(255, 255, 255, 0.75) 0 1px 2px inset;
   text-shadow: rgb(240, 240, 240) 0 1px 0;
+  cursor: pointer;
 }
 select,
 button,
@@ -57,8 +76,8 @@ ol {
 }
 #toast {
   padding-top: 5px;
-  display: block;
-  text-align: right;
+  display: inline;
+  text-align: center;
 }
 #toast:empty {
   display: none;

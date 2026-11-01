@@ -8,11 +8,14 @@
     "idle",
     "storage",
     "nativeMessaging",
-    "unlimitedStorage"
+    "unlimitedStorage",
+    "offscreen",
+    "alarms"
   ],
   "optional_permissions": [
     "scripting",
-    "clipboardRead"
+    "clipboardRead",
+    "clipboard"
   ],
   "optional_host_permissions": [
     "*://*/*"

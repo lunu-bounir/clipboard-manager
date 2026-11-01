@@ -27,6 +27,11 @@
       padding: 10px;
       margin: 10px 0 ;
     }
+    #native {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
     body[data-os=mac] [windows] {
       display: none;
     }
@@ -72,38 +77,44 @@
     <label for="monitor">How to collect clipboards</label>
     <select id="monitor">
       <option value="native">Native Client (Global)</option>
+      <option value="system" selected>Browser + System (No Helper Needed)</option>
+      <option value="system-events">Browser + System Events (No Polling)</option>
       <option value="browser">Content Script (Browser Only)</option>
     </select>
-    <div class="note">This extension can capture clipboard events in two ways:
+    <div class="note">
       <ul>
-        <li>Content Script Mode: Works only when copying text within HTML pages in this browser. If enabled, no native client installation is required.</li>
-        <li>Native Client Mode: Allows clipboard collection from all applications system-wide.</li>
+        <li>Browser + System Mode: polls the clipboard of all applications while the browser is running.</li>
+        <li>Browser + System Events Mode: captures clipboards from all applications using the browser's change events; no polling is performed. Available on ChromeOS only.</li>
+        <li>Content Script Mode: collects clipboards of this browser's pages only.</li>
+        <li>Native Client Mode: collects all clipboards system-wide; needs the optional helper installation.</li>
       </ul>
     </div>
   </p>
-  <p>For this extension to globally monitor clipboard changes and record them, a native component is needed. The native component is available for Windows, Mac, and Linux operating systems. To install this component:</p>
-  <ul style="flex: 1">
-    <li>Download the <a id="package" href="#" >installer</a> script</li>
-    <li>Extract it in a local directory</li>
-    <li mac>Drop <code>install.sh</code> into a terminal window and press the Enter key</li>
-    <li windows>Double-click the <code>install.bat</code> file to install the component</li>
-    <li>Press the "Reload Extension" button to recheck integration</li>
-  </ul>
-  <hr>
-  <p>
-    -> The native component can be completely removed any time, using the <code id="uninstall">uninstall.sh</code> script
-    <br>
-    -> The native component is an <a href="https://github.com/lunu-bounir/clipboard-helper/" target="_blank">open-source</a> project, if you found a bug please open a new issue.
-    <br>
-    -> To see the compiling log visit <a href="https://travis-ci.org/lunu-bounir/clipboard-helper" target="_blank">travis-ci.org</a>
-    <br>
-    -> Installation Preview: <a target="_blank" href="https://www.youtube.com/watch?v=jbkjxphZrFY">Windows</a>, <a target="_blank" href="https://www.youtube.com/watch?v=dtEAhArXOrg">Mac</a>
-  </p>
-  <div id="installed">
-    <p>Native component is already installed! If you get this window, it means the native component is crashed. You can restart the extension to retry.</p>
+  <div class="note" id="note-system" style="display: none">
+    With "Browser + System" mode, clipboards from all applications are collected as long as the browser is running. No installation is needed. The polling interval can be changed in the options page. Pressing Save will ask for your permission to read the clipboard text.
+  </div>
+  <div class="note" id="note-system-events" style="display: none">
+    With "Browser + System Events" mode, clipboards from all applications are collected as soon as they change; nothing is polled in the background. This mode is available on ChromeOS only. Pressing Save will ask for your permission to read the clipboard text.
+  </div>
+  <div class="note" id="note-browser" style="display: none">
+    With "Content Script" mode, only clipboards made within HTML pages of this browser are collected. Pressing Save will ask for your permission to read the clipboard text and run on all websites.
   </div>
   <div>
-    <input id="restart" type="button" value="Reload Extension">
+    <input id="save" type="button" value="Save">
+  </div>
+  <div id="native">
+    <p>For system-wide clipboard collection, the open-source native component is needed. To install it:</p>
+    <ol>
+      <li>Download and extract the <a id="package" href="#">installer</a> script</li>
+      <li mac>Run <code>install.sh</code> in a terminal</li>
+      <li windows>Double-click <code>install.bat</code></li>
+      <li>Press the "Test" button</li>
+    </ol>
+    <p>The component is removed any time with <code id="uninstall">uninstall.sh</code>.</p>
+    <div>
+      <input id="test" type="button" value="Test">
+    </div>
+    <div id="installed"></div>
   </div>
   <script src="index.js"></script>
 </body>

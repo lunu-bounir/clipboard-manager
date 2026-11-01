@@ -6,16 +6,22 @@
   <link rel="stylesheet" type="text/css" href="index.css">
 </head>
 <body>
+  <h1>Clipboard History Manager</h1>
   <p>
     <label for="monitor">How to collect clipboards</label>
     <select id="monitor">
       <option value="native">Native Client (Global)</option>
+      <option value="system">Browser + System (No Helper Needed)</option>
+      <option value="system-events">Browser + System Events (No Polling)</option>
       <option value="browser">Content Script (Browser Only)</option>
     </select>
-    <div class="note">This extension can capture clipboard events in two ways:
+    <input type="button" id="test-native" value="Test" style="display: none" title="Check the connection to the native component">
+    <div class="note">
       <ul>
-        <li>Content Script Mode: Works only when copying text within HTML pages in this browser. If enabled, no native client installation is required.</li>
-        <li>Native Client Mode: Allows clipboard collection from all applications system-wide.</li>
+        <li>Browser + System Mode: polls the clipboard of all applications while the browser is running.</li>
+        <li>Browser + System Events Mode: captures clipboards from all applications using the browser's change events; no polling is performed. Available on ChromeOS only.</li>
+        <li>Content Script Mode: collects clipboards of this browser's pages only.</li>
+        <li>Native Client Mode: collects all clipboards system-wide; needs the optional helper installation.</li>
       </ul>
     </div>
   </p>
@@ -48,31 +54,45 @@
       <td><input type="number" id="maximum-records" min=10 max=5000></td>
     </tr>
     <tr>
+      <td></td>
+      <td>System clipboard polling interval in seconds<sup>4</sup></td>
+      <td><input type="number" id="monitor-interval" min=1 max=60></td>
+    </tr>
+    <tr>
       <td><input type="checkbox" id="faqs"></td>
       <td colspan="2"><label for="faqs">Open FAQs page on updates to get notified on new changes</label></td>
     </tr>
   </table>
+  <p>
+    <input type="button" value="Save Options" id="save">
+    <span id="toast"></span>
+  </p>
 
+  <h2>Database</h2>
+  <p class="intro">Inspect and maintain the local database that keeps your clipboard history.</p>
   <p>
     <input type="button" id="count" value="Total #" title="Count total number of clipboard items stored">
-    <input type="button" id="size" value="Calc Total Size"> - <input type="button" value="Save Options" id="save">
-  </p>
-  <p>
+    <input type="button" id="size" value="Calc Total Size">
     <input type="button" id="clean" value="Clean Database" title="To clear all items insert zero in the 'Maximum number of clipboard entries to keep' and then press this item">
-    <input type="button" id="import" value="Import">
-    <input type="button" id="export" value="Export">
+    <input type="button" id="compact" value="Compact Database" title="Rebuild the database to reclaim unused storage space">
   </p>
+
+  <h2>Export &amp; Import</h2>
+  <p class="intro">Back up the clipboard items to a JSON file, or restore items from a backup previously created by the Export button.</p>
+  <div>
+    <input type="button" id="export" value="Export">
+    <input type="button" id="import" value="Import">
+  </div>
   <p>
-    <input type="button" id="compact" value="Compact Database">
     <input type="button" id="support" value="Support Development">
     <input type="button" id="reset" value="Reset" style="display: none">
   </p>
-  <span id="toast"></span>
-  <h1 style="border: none; border-bottom: dashed 1px #ccc;"></h1>
+  <div style="border: none; border-bottom: dashed 1px #ccc;"></div>
   <ol>
     <li>It is more useful to define a global keyboard for opening the manager window in the popup window mode than clicking the toolbar button to open it.</li>
     <li>Empty the box to store all clipboards up to 1Mbyte in size</li>
     <li>Storing more clipboard items requires more disk space for both the actual clipboard content and the indexer database. Your browser might not allow having very large database storage</li>
+    <li>Defines how often the system clipboard is checked in the "Browser + System" polling mode. Lower values record copies faster at the cost of a slightly higher background workload.</li>
   </ol>
   <script src="size.js"></script>
   <script src="index.js"></script>

@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Clipboard Monitor :: Clipboard History Manager</title>
+  <meta charset="utf-8">
+</head>
+<body>
+  <!-- hidden textarea used to read the system clipboard with the paste command;
+       it must stay focusable, so it is only moved outside of the viewport -->
+  <textarea spellcheck="false"
+    style="position: absolute; left: -9999px; top: -9999px; width: 10px; height: 10px; opacity: 0"></textarea>
+  <script src="index.js"></script>
+</body>
+</html>

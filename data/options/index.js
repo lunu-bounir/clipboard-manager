@@ -10,6 +10,35 @@ toast.display = (msg, period = 2000) => {
   }, period);
 };
 
+// the event-based "Browser + System Events" mode is only supported on ChromeOS;
+// the mode is offered only when both the platform and the API are available
+const optionSystemEvents = document.querySelector('#monitor option[value=system-events]');
+const isChromeOS = () => navigator.userAgent.indexOf('CrOS') !== -1;
+const eventsSupported = () => isChromeOS() &&
+  typeof chrome.clipboard?.onClipboardDataChanged !== 'undefined';
+
+// inline native client test button; displayed next to the monitor select
+const buttonTestNative = document.getElementById('test-native');
+buttonTestNative.addEventListener('click', () => {
+  toast.display('Checking the native component ...', 10000);
+  try {
+    chrome.runtime.sendNativeMessage('desktop.clipboard.manager', {
+      method: 'read'
+    }, r => {
+      chrome.runtime.lastError;
+      if (r) {
+        toast.display('Native component is installed and working!');
+      }
+      else {
+        toast.display('Native component is not detected yet! Please follow the installation steps on this page while the "Browser + System" mode is selected.', 10000);
+      }
+    });
+  }
+  catch (e) {
+    console.warn(e);
+    toast.display('Native component is not detected yet! Please follow the installation steps on this page while the "Browser + System" mode is selected.', 10000);
+  }
+});
 
 const init = () => chrome.storage.local.get({
   'mode': 'popup',
@@ -19,7 +48,8 @@ const init = () => chrome.storage.local.get({
   'focus': true,
   'maximum-records': 1000,
   'faqs': true,
-  'monitor': 'native'
+  'monitor': 'native',
+  'monitor-interval': 5
 }, prefs => {
   document.getElementById('window-mode').checked = prefs.mode === 'window';
   document.getElementById('manager/search').value = prefs['manager/search'];
@@ -28,7 +58,18 @@ const init = () => chrome.storage.local.get({
   document.getElementById('focus').checked = prefs.focus;
   document.getElementById('maximum-records').value = prefs['maximum-records'];
   document.getElementById('faqs').checked = prefs.faqs;
+  document.getElementById('monitor-interval').value = prefs['monitor-interval'];
+  // the event-based mode is disabled on platforms without the ChromeOS API;
+  // a stored 'system-events' preference silently falls back to polling mode
+  if (optionSystemEvents && !eventsSupported()) {
+    optionSystemEvents.disabled = true;
+    if (prefs.monitor === 'system-events') {
+      prefs.monitor = 'system';
+    }
+  }
   document.getElementById('monitor').value = prefs.monitor;
+  document.getElementById('monitor').dataset.value = prefs.monitor;
+  buttonTestNative.style.display = prefs.monitor === 'native' ? '' : 'none';
 });
 document.addEventListener('DOMContentLoaded', init);
 
@@ -38,6 +79,15 @@ document.getElementById('save').addEventListener('click', () => {
   if (size) {
     size = Math.min(Math.max(1, size), 1000);
   }
+  let interval = document.getElementById('monitor-interval').value;
+  if (interval) {
+    interval = Math.min(Math.max(1, interval), 60);
+  }
+  let monitor = document.getElementById('monitor').value;
+  if (monitor === 'system-events' && !eventsSupported()) {
+    // never persist the event-based mode on platforms without the API
+    monitor = 'system';
+  }
   chrome.storage.local.set({
     'mode': document.getElementById('window-mode').checked ? 'window' : 'popup',
     'manager/search': Math.min(50, Math.max(2, document.getElementById('manager/search').value)),
@@ -46,7 +96,8 @@ document.getElementById('save').addEventListener('click', () => {
     'focus': document.getElementById('focus').checked,
     'maximum-records': Math.max(10, Math.min(5000, document.getElementById('maximum-records').value)),
     'faqs': document.getElementById('faqs').checked,
-    'monitor': document.getElementById('monitor').value
+    'monitor-interval': interval || 5,
+    'monitor': monitor
   }, () => {
     toast.display('Options saved!');
     init();
@@ -191,15 +242,30 @@ chrome.runtime.onMessage.addListener(request => {
 
 
 document.getElementById('monitor').onchange = e => {
+  // the test button is only offered while the native mode is selected
+  buttonTestNative.style.display = e.target.value === 'native' ? '' : 'none';
   const monitor = e.target.value;
-  if (monitor === 'browser') {
-    chrome.permissions.request({
-      permissions: ['scripting', 'clipboardRead'],
-      origins: ['*://*/*']
-    }, granted => {
-      if (!granted) {
-        e.target.value = 'native';
-      }
-    });
+  const previous = e.target.dataset.value || 'native';
+  const request = monitor === 'browser' ? {
+    permissions: ['scripting', 'clipboardRead'],
+    origins: ['*://*/*']
+  } : monitor === 'system' ? {
+    permissions: ['clipboardRead']
+  } : monitor === 'system-events' ? {
+    permissions: ['clipboard', 'clipboardRead']
+  } : null;
+  const sync = granted => {
+    if (granted) {
+      e.target.dataset.value = monitor;
+    }
+    else {
+      e.target.value = previous;
+    }
+  };
+  if (request) {
+    chrome.permissions.request(request, sync);
+  }
+  else {
+    sync(true); // native mode needs no optional permission
   }
 };

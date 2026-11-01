@@ -11,7 +11,9 @@ const prefs = {
   'mode': 'popup',
   'max-buffer-size': 100 * 1024,
   'focus': true,
-  'maximum-records': 1000
+  'maximum-records': 1000,
+  'monitor': 'native',
+  'monitor-interval': 5
 };
 chrome.storage.onChanged.addListener(ps => {
   Object.keys(ps).forEach(name => prefs[name] = ps[name].newValue);
@@ -143,11 +145,23 @@ chrome.runtime.onMessage.addListener((request, sender, response) => {
       chrome.windows.remove(sender.tab.windowId);
     }
   }
-  else if (request.method === 'native.focus') {
+  else if (request.method === 'native.focus' && prefs.monitor === 'native') {
     chrome.runtime.sendNativeMessage(monitor.id, {
       method: 'focus',
       pid: Number(request.pid)
     }, response);
+    return true;
+  }
+  else if (request.method === 'monitor/config') {
+    // the offscreen document cannot access chrome.storage; report the
+    // current monitoring configuration to it
+    chrome.storage.local.get({
+      monitor: 'native',
+      'monitor-interval': 5
+    }, ps => response({
+      monitor: ps.monitor,
+      interval: ps['monitor-interval']
+    }));
     return true;
   }
   else if (request.method === 'manager.records') {
@@ -293,7 +307,8 @@ chrome.runtime.onMessage.addListener((request, sender, response) => {
 });
 
 const getProcessId = async () => {
-  if (navigator.platform === 'MacIntel') {
+  // on Mac, this helper is only reachable when the native client is installed
+  if (prefs.monitor === 'native' && navigator.platform === 'MacIntel') {
     const r = await chrome.runtime.sendNativeMessage(monitor.id, {
       method: 'pid'
     }).catch(e => {});
@@ -345,6 +360,17 @@ const mode = () => chrome.action.setPopup({
   popup: prefs.mode === 'window' ? '' : 'data/manager/index.html'
 });
 
+/* native-free system monitoring lifecycle */
+chrome.runtime.onStartup.addListener(() => monitor.install());
+chrome.alarms.create('monitor', {
+  periodInMinutes: 1
+});
+chrome.alarms.onAlarm.addListener(alarm => {
+  if (alarm.name === 'monitor') {
+    monitor.ensure();
+  }
+});
+
 /* start xapian engine */
 self.addEventListener('xapian-ready', async () => {
   manager.ready = true;
@@ -356,6 +382,18 @@ self.addEventListener('xapian-ready', async () => {
 });
 if (typeof importScripts !== 'undefined') {
   self.importScripts('xapian/xapian_noexception_wasm_db.js');
+}
+
+/* First Run: ask the user to select the clipboard collection mode; the window is
+ * opened either here or from the failed "connectNative" (monitor.presentInstaller),
+ * whichever runs first — the session flag makes sure only one window shows up. */
+{
+  chrome.runtime.onInstalled.addListener(({reason}) => {
+    if (reason === 'install') {
+      chrome.storage.session.set({'first-run': true}).catch(() => {});
+      monitor.presentInstaller();
+    }
+  });
 }
 
 /* FAQs & Feedback */
