@@ -338,11 +338,11 @@ const onCommand = async command => {
 
     await chrome.runtime.sendMessage({
       method: 'close'
-    }).catch(e => {});
+    }).catch(() => {});
 
     const {left, width, height, top} = await chrome.windows.getCurrent();
 
-    await chrome.windows.create({
+    const win = await chrome.windows.create({
       focused: true,
       url: 'data/manager/index.html?' + args.toString(),
       width: prefs.width,
@@ -351,6 +351,12 @@ const onCommand = async command => {
       top: top + Math.round((height - 500) / 2),
       type: 'popup'
     });
+    // explicitly request activation
+    if (win?.id !== undefined) {
+      await chrome.windows.update(win.id, {
+        focused: true
+      });
+    }
   }
 };
 chrome.commands.onCommand.addListener(onCommand);
